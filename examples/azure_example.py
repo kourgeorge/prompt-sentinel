@@ -5,8 +5,10 @@ from openai import AzureOpenAI
 from sentinel_detectors import LLMSecretDetector, OpenAITrustableLLM
 from prompt_sentinel import sentinel
 
+load_dotenv()  # take environment variables
 
-@sentinel(detector=LLMSecretDetector(OpenAITrustableLLM(AzureOpenAI, "gpt-4o-2024-08-06")))
+
+@sentinel(detector=LLMSecretDetector(OpenAITrustableLLM(AzureOpenAI(), "gpt-4o-2024-08-06")))
 def call_llm(messages: List[dict]) -> str:
     """
     Call an LLM with a history of messages and return the response.
@@ -30,7 +32,6 @@ def call_llm(messages: List[dict]) -> str:
 
 
 if __name__ == '__main__':
-    load_dotenv()  # take environment variables
     client = AzureOpenAI()
     model = "gpt-4o-2024-08-06"
     # Example usage with your call_llm function:
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user",
-         "content": "Write a function in python logging in into an my banck account with the following API function bank_user_auth(username, passowrd). "
+         "content": "Write a function in python logging in into an my demo account with the following API function demo_app_user_auth(username, passowrd). "
                     "My email is kkk@gmail.com and password ABC123SECRETXYZ."},
 
     ]
