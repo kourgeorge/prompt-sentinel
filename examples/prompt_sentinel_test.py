@@ -2,11 +2,11 @@ from typing import List
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
-from sentinel_detectors import ChatGPTSecretDetector
+from sentinel_detectors import LLMSecretDetector, OpenAITrustableLLM
 from prompt_sentinel import sentinel
 
 
-@sentinel(detector=ChatGPTSecretDetector())
+@sentinel(detector=LLMSecretDetector(OpenAITrustableLLM(AzureOpenAI, "gpt-4o-2024-08-06")))
 def call_llm(messages: List[dict]) -> str:
     """
     Call an LLM with a history of messages and return the response.

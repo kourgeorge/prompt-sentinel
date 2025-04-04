@@ -1,13 +1,8 @@
-import json
 import re
 from abc import ABC, abstractmethod
-from typing import List, Dict
-import requests
-from openai import AzureOpenAI
+from typing import List, Dict, Any
 from utils import parse_json_output
 from functools import lru_cache
-from high_entropy_string import PythonStringData
-
 
 
 def find_secret_positions(text: str, secrets: List[str]) -> List[Dict]:
@@ -43,74 +38,36 @@ class SecretDetector(ABC):
         pass
 
 
-def call_ollama(prompt: str) -> str:
-    """
-    Call the Ollama local LLM with the provided prompt.
-
-    Replace the URL, model, and parameters with your actual configuration.
-    """
-    url = "http://localhost:11434/api/v1/generate"  # Example endpoint; update as needed.
-    payload = {
-        "prompt": prompt,
-        "model": 'llama3.2',  # Replace with your Ollama model name.
-        "temperature": 0.0,
-        "max_tokens": 150,
-    }
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-    except Exception as e:
-        print(f"Error calling Ollama: {e}")
-        return ""
-    return response.text
+class TrustableLLM(ABC):
+    @abstractmethod
+    def invoke(self, messages: Any, **kwargs) -> str:
+        """Invoke the LLM with message(s) and optional keyword arguments."""
+        pass
 
 
-class OllamaSecretDetector(SecretDetector):
-    def detect(self, text: str) -> List[Dict]:
-        """
-        Uses Ollama to detect secrets in the text.
+class OpenAITrustableLLM(TrustableLLM):
+    def __init__(self, client, model: str):
+        self.client = client
+        self.model = model
 
-        The prompt instructs Ollama to return a JSON array of detected secrets,
-        where each secret is a JSON object with "secret", "start", and "end" keys.
-
-        Example output:
-        [
-            {"secret": "API key 12345", "start": 10, "end": 24},
-            {"secret": "password", "start": 50, "end": 58}
-        ]
-        """
-        prompt = (
-            "Analyze the following text and extract any sensitive or private data (secrets). "
-            "Return the result as a JSON array where each element is an object with keys "
-            "'secret', 'start', and 'end' indicating the text of the secret and its position in the text. "
-            f"Text: '''{text}'''"
+    def invoke(self, messages: Any, **kwargs) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            **kwargs,
         )
-        ollama_response = call_ollama(prompt)
-        try:
-            # Expecting Ollama to return a JSON string.
-            secrets = json.loads(ollama_response)
-            if isinstance(secrets, list):
-                return secrets
-            else:
-                print("Ollama did not return a list. Response:", ollama_response)
-                return []
-        except json.JSONDecodeError:
-            print("Failed to decode Ollama response as JSON. Response:", ollama_response)
-            return []
+        return response.choices[0].message.content or ""
 
 
-class ChatGPTSecretDetector(SecretDetector):
-    def __init__(self):
-        self.client = AzureOpenAI()
-        self.model = "gpt-4o-2024-08-06"
-        # Build a cached detection function bound to this instance.
+class LLMSecretDetector(SecretDetector):
+    def __init__(self, trustable_llm):
+        """
+        :param trustable_llm: An object with a method `chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str`
+        """
+        self.trustable_llm = trustable_llm
         self._cached_detect = self._build_cached_detect()
 
     def _build_cached_detect(self):
-        """
-        Returns a function that performs detection using the ChatGPT API,
-        and caches the results using lru_cache. The cache key will be the text input.
-        """
         @lru_cache(maxsize=128)
         def _detect(text: str) -> List[Dict]:
             prompt = (
@@ -122,38 +79,31 @@ class ChatGPTSecretDetector(SecretDetector):
                 "If no sensitive data is found, return an empty JSON array.\n\n"
                 f"Text: '''{text}'''"
             )
+
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
+                response_text = self.trustable_llm.invoke(
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.0,
-                    max_tokens=150,
+                    max_tokens=300
                 )
             except Exception as e:
-                print(f"Error calling ChatGPT API: {e}")
+                print(f"Error calling LLM: {e}")
                 return []
 
-            response_text = response.choices[0].message.content
             try:
-                # Parse the response to get a list of secret strings.
                 secret_list = parse_json_output(response_text)
                 if not isinstance(secret_list, list):
-                    print("ChatGPT did not return a list. Response:", response_text)
+                    print("LLM did not return a list. Response:", response_text)
                     return []
             except json.JSONDecodeError:
-                print("Failed to decode ChatGPT response as JSON. Response:", response_text)
+                print("Failed to decode LLM response as JSON. Response:", response_text)
                 return []
 
-            # Find the positions of each secret in the original text.
-            secret_positions = find_secret_positions(text, secret_list)
-            return secret_positions
+            return find_secret_positions(text, secret_list)
 
         return _detect
 
     def detect(self, text: str) -> List[Dict]:
-        """
-        Uses the cached detection function to get sensitive secret positions.
-        """
         return self._cached_detect(text)
 
     def report_cache(self):
@@ -162,6 +112,7 @@ class ChatGPTSecretDetector(SecretDetector):
 
 
 class PythonStringDataDetector(SecretDetector):
+    # from high_entropy_string import PythonStringData
     MIN_CONFIDENCE_THRESHOLD = 3
     MIN_SEVERITY_THRESHOLD = 3
 
@@ -232,7 +183,7 @@ if __name__ == "__main__":
         "User login: password: SuperSecret123, API key: ABCD-1234-EFGH-5678, "
         "and token: TOKEN9876XYZ. This function call is safe: apis.supervisor.show_account_passwords()"
     )
-    detector = PythonStringDataDetector()
+    detector = LLMSecretDetector()
     detected_secrets = detector.detect(sample_text)
 
     import json
