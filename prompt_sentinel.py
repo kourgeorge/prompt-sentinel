@@ -2,7 +2,6 @@ from copy import deepcopy
 from typing import List, Any, Callable
 from functools import wraps
 from sentinel_detectors import SecretDetector
-from utils import parse_json_output
 import inspect
 
 

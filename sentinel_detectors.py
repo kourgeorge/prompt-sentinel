@@ -128,7 +128,7 @@ class PythonStringDataDetector(SecretDetector):
         Returns a function that performs secret detection by analyzing each token in the text
         using PythonStringData, and caches the results with lru_cache. The cache key will be the text input.
         """
-
+        from high_entropy_string import PythonStringData
         @lru_cache(maxsize=128)
         def _detect(text: str) -> List[Dict]:
             results = []
