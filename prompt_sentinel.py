@@ -3,11 +3,8 @@ from typing import List, Any, Callable
 from functools import wraps
 from sentinel_detectors import SecretDetector
 from utils import parse_json_output
+import inspect
 
-
-# MessageLikeRepresentation is defined as:
-# Union[BaseMessage, list[str], tuple[str, str], str, dict[str, Any]]
-# We'll try to handle each of these cases.
 
 def _sanitize_message(
         message: Any,
@@ -56,53 +53,60 @@ def _sanitize_message(
         return detect_and_encode_text(str(message), secret_mapping, token_counter, detector)
 
 
+def _is_likely_method(func: Callable) -> bool:
+    """Heuristically check if this is an instance or class method."""
+    if inspect.ismethod(func):
+        return True  # bound method
+    qualname_parts = getattr(func, "__qualname__", "").split(".")
+    if len(qualname_parts) > 1:
+        try:
+            sig = inspect.signature(func)
+            first_param = list(sig.parameters.values())[0].name
+            return first_param in {"self", "cls"}
+        except Exception:
+            return False
+    return False
+
+
 def sentinel(detector: SecretDetector):
-    """
-    Decorator factory that creates a decorator which sanitizes any LanguageModelInput
-    (matching the MessageLikeRepresentation union) before calling the LLM function
-    and decodes the response after.
+    def decorator(func: Callable):
+        is_method = _is_likely_method(func)
 
-    This version works with both standalone functions and instance methods.
-    """
-
-    def decorator(func:Callable):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Determine if the function is bound (i.e., first arg is self)
-            if args and hasattr(args[0], '__class__'):
-                self_instance = args[0]
-                input_data = args[1]
-                new_input = deepcopy(input_data)
-                new_args = (self_instance, new_input) + args[2:]
-            else:
-                input_data = args[0]
-                new_input = deepcopy(input_data)
-                new_args = (new_input,) + args[1:]
+            if not args:
+                return func(*args, **kwargs)
 
             secret_mapping = {}
             token_counter = [1]
 
-            # Sanitize the input based on its type.
-            new_input = _sanitize_message(new_input, secret_mapping, token_counter, detector)
-
-            # Update new_args with the sanitized input.
-            if args and hasattr(args[0], '__class__'):
-                new_args = (args[0], new_input) + args[2:]
+            # Determine which arg is the input message(s)
+            if is_method:
+                self_instance = args[0]
+                input_data = args[1]
+                sanitized_input = deepcopy(input_data)
+                sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
+                new_args = (self_instance, sanitized_input) + args[2:]
             else:
-                new_args = (new_input,) + args[1:]
+                input_data = args[0]
+                sanitized_input = deepcopy(input_data)
+                sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
+                new_args = (sanitized_input,) + args[1:]
 
-            # Call the original function with sanitized input.
-            response_text = func(*new_args, **kwargs)
+            response = func(*new_args, **kwargs)
 
-            # Post-process: decode the tokens in the response.
-            return decode_text(response_text, secret_mapping)
+            # Decode if response is str or dict with "content"
+            if isinstance(response, str):
+                return decode_text(response, secret_mapping)
+            elif isinstance(response, dict) and "content" in response:
+                response = deepcopy(response)
+                response["content"] = decode_text(response["content"], secret_mapping)
+                return response
+            return response  # fallback
 
         return wrapper
-
     return decorator
 
-
-# --- Helper functions (unchanged) ---
 
 def detect_and_encode_text(
         text: str,

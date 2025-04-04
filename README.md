@@ -34,7 +34,7 @@ Below is an example of how to use Prompt Sentinel in an LLM pipeline. In this ex
 from typing import List
 from dotenv import load_dotenv
 from openai import AzureOpenAI
-from sentinel_detectors import ChatGPTSecretDetector
+from sentinel_detectors import LLMSecretDetector
 from prompt_sentinel import prompt_sentinel
 
 # Load environment variables
@@ -44,7 +44,8 @@ load_dotenv()
 client = AzureOpenAI()
 model = "gpt-4o-2024-08-06"
 
-@prompt_sentinel(detector=ChatGPTSecretDetector())
+
+@prompt_sentinel(detector=LLMSecretDetector())
 def call_llm(messages: List[dict]) -> str:
     """
     Call an LLM with a history of messages and return the (sanitized) response.
@@ -60,10 +61,11 @@ def call_llm(messages: List[dict]) -> str:
     except Exception as e:
         print(f"Error calling LLM: {e}.\nMessages: {messages}")
         return ""
-    
+
     if response.choices:
         return response.choices[0].message.content
     return ""
+
 
 # Example call:
 messages = [
