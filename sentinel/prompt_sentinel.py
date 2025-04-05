@@ -1,8 +1,12 @@
 from copy import deepcopy
 from typing import List, Any, Callable
 from functools import wraps
+
+from langchain_core.messages import BaseMessage
+
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
+import asyncio
 
 
 def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, detector: SecretDetector) -> Any:
@@ -61,19 +65,39 @@ def _is_likely_method(func: Callable) -> bool:
     return False
 
 
+def _process_response(response, secret_mapping):
+    if isinstance(response, str):
+        response = decode_text(response, secret_mapping)
+    elif isinstance(response, BaseMessage):
+        # Decode the content using attribute access.
+        sanitized_content = decode_text(response.content, secret_mapping)
+        # Use the copy method if available.
+        if hasattr(response, "copy"):
+            response = response.copy(update={"content": sanitized_content})
+        else:
+            # Otherwise, create a new instance. This assumes that your message
+            # class accepts all its fields as keyword arguments.
+            response = response.__class__(**response.__dict__, content=sanitized_content)
+    elif isinstance(response, dict) and "content" in response:
+        response = deepcopy(response)
+        response["content"] = decode_text(response["content"], secret_mapping)
+    return response
+
+
+
 def sentinel(detector: SecretDetector):
     def decorator(func: Callable):
         is_method = _is_likely_method(func)
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if not args:
-                return func(*args, **kwargs)
-
+        # Helper to sanitize arguments
+        def process_args(args):
             secret_mapping = {}
             token_counter = [1]
+            # If there are no args, nothing to do.
+            if not args:
+                return args, secret_mapping
 
-            # Determine which arg is the input message(s)
+            # Assume that for methods, args[0] is self and args[1] is input
             if is_method:
                 self_instance = args[0]
                 input_data = args[1]
@@ -85,20 +109,29 @@ def sentinel(detector: SecretDetector):
                 sanitized_input = deepcopy(input_data)
                 sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
                 new_args = (sanitized_input,) + args[1:]
+            return new_args, secret_mapping
 
-            response = func(*new_args, **kwargs)
-
-            # Decode if response is str or dict with "content"
-            if isinstance(response, str):
-                return decode_text(response, secret_mapping)
-            elif isinstance(response, dict) and "content" in response:
-                response = deepcopy(response)
-                response["content"] = decode_text(response["content"], secret_mapping)
-                return response
-            return response  # fallback
-
-        return wrapper
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                if not args:
+                    response = await func(*args, **kwargs)
+                    return _process_response(response, {})
+                new_args, secret_mapping = process_args(args)
+                response = await func(*new_args, **kwargs)
+                return _process_response(response, secret_mapping)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                if not args:
+                    return func(*args, **kwargs)
+                new_args, secret_mapping = process_args(args)
+                response = func(*new_args, **kwargs)
+                return _process_response(response, secret_mapping)
+            return sync_wrapper
     return decorator
+
 
 
 def detect_and_encode_text(
