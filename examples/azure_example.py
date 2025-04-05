@@ -2,8 +2,8 @@ from typing import List
 
 from dotenv import load_dotenv
 from openai import AzureOpenAI
-from sentinel_detectors import LLMSecretDetector, OpenAITrustableLLM
-from prompt_sentinel import sentinel
+from sentinel.sentinel_detectors import LLMSecretDetector, OpenAITrustableLLM
+from sentinel.prompt_sentinel import sentinel
 
 load_dotenv()  # take environment variables
 

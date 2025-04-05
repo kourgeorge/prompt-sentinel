@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import List, Any, Callable
 from functools import wraps
-from sentinel_detectors import SecretDetector
+from sentinel.sentinel_detectors import SecretDetector
 import inspect
 
 

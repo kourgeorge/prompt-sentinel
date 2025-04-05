@@ -1,9 +1,7 @@
 import pytest
-from prompt_sentinel import sentinel, decode_text
+from sentinel.prompt_sentinel import sentinel, decode_text
 from typing import List, Dict, Any
-from unittest.mock import MagicMock
-
-from sentinel_detectors import SecretDetector
+from sentinel.sentinel_detectors import SecretDetector
 
 
 # Dummy SecretDetector that flags certain strings as secrets
