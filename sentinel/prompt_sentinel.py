@@ -5,18 +5,13 @@ from sentinel.sentinel_detectors import SecretDetector
 import inspect
 
 
-def _sanitize_message(
-        message: Any,
-        secret_mapping: dict,
-        token_counter: list,
-        detector: SecretDetector
-) -> Any:
+def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, detector: SecretDetector) -> Any:
     """
     Sanitizes a single message-like representation.
     - If it's a string, sanitize the text.
     - If it's a dict with a "content" key, sanitize that content.
     - If it's a list or tuple of strings, sanitize each string.
-    - If it's an instance of BaseMessage (from langchain.schema), create a new message with sanitized content.
+    - If it has a 'content' attribute (e.g., HumanMessage), create a new message with sanitized content.
     - Otherwise, fallback to converting to string and sanitizing.
     """
     # Check for dict with "content" key.
@@ -31,23 +26,22 @@ def _sanitize_message(
         return detect_and_encode_text(message, secret_mapping, token_counter, detector)
     # Check for list or tuple.
     elif isinstance(message, (list, tuple)):
-        # Assume it's a sequence of strings or message-like items.
         sanitized = []
         for item in message:
             sanitized.append(_sanitize_message(item, secret_mapping, token_counter, detector))
-        # Preserve original type.
         return type(message)(sanitized)
-    else:
-        # Try to check if it's a BaseMessage (e.g., from langchain.schema).
+    # Check if it has a 'content' attribute.
+    elif hasattr(message, "content") and isinstance(getattr(message, "content"), str):
+        sanitized_content = detect_and_encode_text(message.content, secret_mapping, token_counter, detector)
         try:
-            from langchain.schema import BaseMessage
-            if isinstance(message, BaseMessage):
-                # Create a copy of the message with sanitized content.
-                sanitized_content = detect_and_encode_text(message.content, secret_mapping, token_counter, detector)
-                # Assume the message class accepts a "content" argument.
-                return message.__class__(content=sanitized_content)
-        except ImportError:
-            pass
+            # Attempt to create a new instance if the class accepts 'content'.
+            return message.__class__(content=sanitized_content)
+        except Exception:
+            # Fallback: if instantiation fails, return a deepcopy with updated content.
+            message = deepcopy(message)
+            message.content = sanitized_content
+            return message
+    else:
         # Fallback: convert to string.
         return detect_and_encode_text(str(message), secret_mapping, token_counter, detector)
 
@@ -85,7 +79,7 @@ def sentinel(detector: SecretDetector):
                 input_data = args[1]
                 sanitized_input = deepcopy(input_data)
                 sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
-                new_args = (self_instance, sanitized_input) + args[2:]
+                new_args = (sanitized_input,) + args[2:]
             else:
                 input_data = args[0]
                 sanitized_input = deepcopy(input_data)
