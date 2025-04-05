@@ -1,10 +1,11 @@
 from copy import deepcopy
 from typing import Any, Callable
 from functools import wraps
-from langchain_core.messages import BaseMessage
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
 import asyncio
+from langchain.schema import AIMessage, HumanMessage, SystemMessage  # or BaseMessage
+from sentinel.secret_context import set_secret_mapping
 
 
 def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, detector: SecretDetector) -> Any:
@@ -69,36 +70,40 @@ def _process_response(response, secret_mapping):
     if isinstance(response, list):
         return [_process_response(item, secret_mapping) for item in response]
 
-    # If response is a dict, check for a role.
+    # If response is a dict, decode 'content' and process nested values.
     if isinstance(response, dict):
         role = response.get("role")
-        # Skip processing for messages that are tools or tool_calls.
         if role in {"tool", "tool_calls"}:
             return response
-        # Otherwise, if there is a "content" key, decode it.
+        response = deepcopy(response)
         if "content" in response:
-            response = deepcopy(response)
             response["content"] = decode_text(response["content"], secret_mapping)
-        # Recursively process any nested structures.
         for key, value in response.items():
             response[key] = _process_response(value, secret_mapping)
         return response
 
-    # If it's an instance (e.g. BaseMessage-like) with role and content, skip if role is tool.
-    if hasattr(response, "role") and hasattr(response, "content"):
-        if response.role in {"tool", "tool_calls"}:
+    # If it's a LangChain message (e.g., AIMessage)
+    if isinstance(response, (AIMessage, HumanMessage, SystemMessage)):
+        if getattr(response, "role", None) in {"tool", "tool_calls"}:
             return response
-        sanitized_content = decode_text(response.content, secret_mapping)
-        if hasattr(response, "copy"):
-            return response.copy(update={"content": sanitized_content})
-        else:
-            return response.__class__(**response.__dict__, content=sanitized_content)
 
-    # For plain strings, decode normally.
+        sanitized_content = decode_text(response.content, secret_mapping)
+        sanitized_kwargs = _process_response(response.additional_kwargs, secret_mapping)
+        sanitized_meta = _process_response(response.response_metadata, secret_mapping)
+        sanitized_usage = _process_response(getattr(response, "usage_metadata", {}), secret_mapping)
+
+        return response.copy(update={
+            "content": sanitized_content,
+            "additional_kwargs": sanitized_kwargs,
+            "response_metadata": sanitized_meta,
+            "usage_metadata": sanitized_usage
+        })
+
+    # If it's a string, decode it
     if isinstance(response, str):
         return decode_text(response, secret_mapping)
 
-    # Fallback: return the response unmodified.
+    # Fallback: return as is
     return response
 
 
@@ -166,7 +171,6 @@ def detect_and_encode_text(
     if not secrets_info:
         return text
 
-    print (text)
     # Sort detected secrets by their start index for proper replacement.
     secrets_info.sort(key=lambda x: x["start"])
     sanitized_text = ""
@@ -180,6 +184,7 @@ def detect_and_encode_text(
         sanitized_text += token
         last_idx = end
     sanitized_text += text[last_idx:]
+    set_secret_mapping(secret_mapping)
     return sanitized_text
 
 
