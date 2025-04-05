@@ -24,6 +24,16 @@ def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, d
             )
         return message
     # Check for plain string.
+    if hasattr(message, "content") and isinstance(getattr(message, "content"), str):
+        sanitized_content = detect_and_encode_text(message.content, secret_mapping, token_counter, detector)
+        try:
+            # Attempt to create a new instance if the class accepts 'content'.
+            return message.__class__(role=message.role, content=sanitized_content)
+        except Exception:
+            # Fallback: if instantiation fails, return a deepcopy with updated content.
+            message = deepcopy(message)
+            message.content = sanitized_content
+            return message
     elif isinstance(message, str):
         return detect_and_encode_text(message, secret_mapping, token_counter, detector)
     # Check for list or tuple.
@@ -33,16 +43,7 @@ def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, d
             sanitized.append(_sanitize_message(item, secret_mapping, token_counter, detector))
         return type(message)(sanitized)
     # Check if it has a 'content' attribute.
-    elif hasattr(message, "content") and isinstance(getattr(message, "content"), str):
-        sanitized_content = detect_and_encode_text(message.content, secret_mapping, token_counter, detector)
-        try:
-            # Attempt to create a new instance if the class accepts 'content'.
-            return message.__class__(content=sanitized_content)
-        except Exception:
-            # Fallback: if instantiation fails, return a deepcopy with updated content.
-            message = deepcopy(message)
-            message.content = sanitized_content
-            return message
+
     else:
         # Fallback: convert to string.
         return detect_and_encode_text(str(message), secret_mapping, token_counter, detector)
@@ -64,21 +65,40 @@ def _is_likely_method(func: Callable) -> bool:
 
 
 def _process_response(response, secret_mapping):
-    if isinstance(response, str):
-        response = decode_text(response, secret_mapping)
-    elif isinstance(response, BaseMessage):
-        # Decode the content using attribute access.
+    # If response is a list, process each element recursively.
+    if isinstance(response, list):
+        return [_process_response(item, secret_mapping) for item in response]
+
+    # If response is a dict, check for a role.
+    if isinstance(response, dict):
+        role = response.get("role")
+        # Skip processing for messages that are tools or tool_calls.
+        if role in {"tool", "tool_calls"}:
+            return response
+        # Otherwise, if there is a "content" key, decode it.
+        if "content" in response:
+            response = deepcopy(response)
+            response["content"] = decode_text(response["content"], secret_mapping)
+        # Recursively process any nested structures.
+        for key, value in response.items():
+            response[key] = _process_response(value, secret_mapping)
+        return response
+
+    # If it's an instance (e.g. BaseMessage-like) with role and content, skip if role is tool.
+    if hasattr(response, "role") and hasattr(response, "content"):
+        if response.role in {"tool", "tool_calls"}:
+            return response
         sanitized_content = decode_text(response.content, secret_mapping)
-        # Use the copy method if available.
         if hasattr(response, "copy"):
-            response = response.copy(update={"content": sanitized_content})
+            return response.copy(update={"content": sanitized_content})
         else:
-            # Otherwise, create a new instance. This assumes that your message
-            # class accepts all its fields as keyword arguments.
-            response = response.__class__(**response.__dict__, content=sanitized_content)
-    elif isinstance(response, dict) and "content" in response:
-        response = deepcopy(response)
-        response["content"] = decode_text(response["content"], secret_mapping)
+            return response.__class__(**response.__dict__, content=sanitized_content)
+
+    # For plain strings, decode normally.
+    if isinstance(response, str):
+        return decode_text(response, secret_mapping)
+
+    # Fallback: return the response unmodified.
     return response
 
 
@@ -96,7 +116,6 @@ def sentinel(detector: SecretDetector):
 
             # Assume that for methods, args[0] is self and args[1] is input
             if is_method:
-                self_instance = args[0]
                 input_data = args[1]
                 sanitized_input = deepcopy(input_data)
                 sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
@@ -117,6 +136,7 @@ def sentinel(detector: SecretDetector):
                 new_args, secret_mapping = process_args(args)
                 response = await func(*new_args, **kwargs)
                 return _process_response(response, secret_mapping)
+
             return async_wrapper
         else:
             @wraps(func)
@@ -126,7 +146,9 @@ def sentinel(detector: SecretDetector):
                 new_args, secret_mapping = process_args(args)
                 response = func(*new_args, **kwargs)
                 return _process_response(response, secret_mapping)
+
             return sync_wrapper
+
     return decorator
 
 
@@ -144,6 +166,7 @@ def detect_and_encode_text(
     if not secrets_info:
         return text
 
+    print (text)
     # Sort detected secrets by their start index for proper replacement.
     secrets_info.sort(key=lambda x: x["start"])
     sanitized_text = ""

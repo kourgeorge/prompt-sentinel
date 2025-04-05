@@ -169,19 +169,9 @@ class PythonStringDataDetector(SecretDetector):
         return cache_info
 
 
-# Example usage:
-if __name__ == "__main__":
-    sample_text = (
-        "User login: password: SuperSecret123, API key: ABCD-1234-EFGH-5678, "
-        "and token: TOKEN9876XYZ. This function call is safe: apis.supervisor.show_account_passwords()"
-    )
-    detector = LLMSecretDetector()
-    detected_secrets = detector.detect(sample_text)
-
-    import json
-
-    print("Detected potential secrets:")
-    print(json.dumps(detected_secrets, indent=2))
-
-    # Optionally, report cache information.
-    detector.report_cache()
+class DummyDetector(SecretDetector):
+    def detect(self, text: str) -> List[Dict]:
+        """
+        A dummy detector that does nothing and returns an empty list.
+        """
+        return []
