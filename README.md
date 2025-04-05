@@ -83,21 +83,36 @@ This ensures tools receive decoded (original) values like passwords, API keys, o
 
 ## How It Works
 
-```mermaid
-flowchart TD
-    A[User Input] --> B[Sanitize Input via @sentinel]
-    B --> C[Detect Secrets with SecretDetector]
-    C --> D[Replace Secrets with Tokens (__SECRET_1__)]
-    D --> E[Send Sanitized Input to LLM]
-    E --> F[LLM Generates Response with Tokens]
-    F --> G[Decode LLM Output using Secret Mapping]
-    G --> H{LLM Response Contains Tool Call?}
-    H -- Yes --> I[Intercept Tool _run()]
-    I --> J[Decode Tool Input with Secret Mapping]
-    J --> K[Tool Executes with Original Secrets]
-    H -- No --> L[Return Final Response to User]
-    K --> L
-```
+Step-by-step flow:
+
+1. **User Input**  
+   The user submits a prompt containing potential secrets.
+
+2. **Sanitize Input via `@sentinel`**  
+   The decorator intercepts the prompt before it reaches the LLM.
+
+3. **Detect Secrets with SecretDetector**  
+   A detector scans the prompt for sensitive information like passwords, keys, or tokens.
+
+4. **Replace Secrets with Tokens (e.g., `__SECRET_1__`)**  
+   Each secret is replaced by a unique placeholder token and stored in a mapping.
+
+5. **Send Sanitized Input to LLM**  
+   The modified, tokenized prompt is passed to the language model.
+
+6. **LLM Generates Response with Tokens**  
+   The response from the model may include those placeholder tokens.
+
+7. **Decode LLM Output using Secret Mapping**  
+   Tokens are replaced with their original secrets using the stored mapping.
+
+8. **Check: Does the LLM Response Contain a Tool Call?**  
+   - If **yes**:  
+     a. Intercept the tool's `_run()` method  
+     b. Decode any secrets in the tool input using the same mapping  
+     c. Execute the tool with the original values
+   - If **no**:  
+     Return the decoded LLM response directly to the user.
 
 ## Customization
 
