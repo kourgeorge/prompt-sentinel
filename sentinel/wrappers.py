@@ -1,10 +1,9 @@
 from langchain_core.language_models import BaseChatModel
-
 from sentinel.prompt_sentinel import sentinel
 from sentinel.sentinel_detectors import SecretDetector
 
 
-def wrap_basechatmodel_with_sentinel(model: BaseChatModel, detector: SecretDetector):
+def wrap_chat_model_with_sentinel(model: BaseChatModel, detector: SecretDetector):
     """
     Wraps the key LLM call methods of the given model instance with the sentinel decorator.
     This patches the model's class so that the methods are overridden.
