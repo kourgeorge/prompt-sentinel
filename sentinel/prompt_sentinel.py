@@ -1,9 +1,7 @@
 from copy import deepcopy
-from typing import List, Any, Callable
+from typing import Any, Callable
 from functools import wraps
-
 from langchain_core.messages import BaseMessage
-
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
 import asyncio
@@ -84,7 +82,6 @@ def _process_response(response, secret_mapping):
     return response
 
 
-
 def sentinel(detector: SecretDetector):
     def decorator(func: Callable):
         is_method = _is_likely_method(func)
@@ -131,7 +128,6 @@ def sentinel(detector: SecretDetector):
                 return _process_response(response, secret_mapping)
             return sync_wrapper
     return decorator
-
 
 
 def detect_and_encode_text(

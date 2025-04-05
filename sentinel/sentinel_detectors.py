@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from sentinel.utils import parse_json_output
 from functools import lru_cache
+import json
 
 
 def find_secret_positions(text: str, secrets: List[str]) -> List[Dict]:
@@ -42,27 +43,13 @@ class SecretDetector(ABC):
 
 class TrustableLLM(ABC):
     @abstractmethod
-    def invoke(self, messages: Any, **kwargs) -> str:
+    def predict(self, text: str, **kwargs) -> str:
         """Invoke the LLM with message(s) and optional keyword arguments."""
         pass
 
 
-class OpenAITrustableLLM(TrustableLLM):
-    def __init__(self, client, model: str):
-        self.client = client
-        self.model = model
-
-    def invoke(self, messages: Any, **kwargs) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            **kwargs,
-        )
-        return response.choices[0].message.content or ""
-
-
 class LLMSecretDetector(SecretDetector):
-    def __init__(self, trustable_llm):
+    def __init__(self, trustable_llm: TrustableLLM):
         """
         :param trustable_llm: An object with a method `chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str`
         """
@@ -87,17 +74,15 @@ class LLMSecretDetector(SecretDetector):
             )
 
             try:
-                response_text = self.trustable_llm.invoke(
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.0,
-                    max_tokens=300
+                response_text = self.trustable_llm.predict(
+                    text=prompt,
                 )
             except Exception as e:
                 print(f"Error calling LLM: {e}")
                 return []
 
             try:
-                parsed_output = self.output_parser.parse(response_text)
+                parsed_output = self.output_parser.parse(str(response_text))
                 secret_list = parsed_output.get("secrets", [])
                 # secret_list = parse_json_output(response_text)
                 if not isinstance(secret_list, list):

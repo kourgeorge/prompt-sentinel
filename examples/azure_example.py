@@ -3,14 +3,14 @@ from typing import List
 from dotenv import load_dotenv
 from langchain_community.chat_models import AzureChatOpenAI
 from openai import AzureOpenAI
-from sentinel.sentinel_detectors import LLMSecretDetector, OpenAITrustableLLM
+from sentinel.sentinel_detectors import LLMSecretDetector
 from sentinel.prompt_sentinel import sentinel
 from sentinel.wrappers import wrap_chat_model_with_sentinel
 
 load_dotenv()  # take environment variables
 
 
-@sentinel(detector=LLMSecretDetector(OpenAITrustableLLM(AzureOpenAI(), "gpt-4o-2024-08-06")))
+@sentinel(detector=LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06")))
 def call_llm(messages: List[dict]) -> str:
     """
     Call an LLM with a history of messages and return the response.
@@ -52,6 +52,6 @@ if __name__ == '__main__':
 
     # OR
     llm = AzureChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
-    wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(OpenAITrustableLLM(AzureOpenAI(), "gpt-4o-2024-08-06")))
+    wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06")))
     result = wrapped_llm.invoke(messages)
     print("Wrapped LLM Response:", result)
