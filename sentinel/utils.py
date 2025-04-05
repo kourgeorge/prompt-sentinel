@@ -32,18 +32,3 @@ def parse_json_output(input_str):
 
     # Parse and return the JSON data
     return json.loads(json_str)
-
-
-# Example usage:
-input_data = '''```json
-[
-    {
-        "secret": "ABC123SECRETXYZ",
-        "start": 22,
-        "end": 36
-    }
-]
-```'''
-
-result = parse_json_output(input_data)
-print(result)
