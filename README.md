@@ -73,12 +73,6 @@ from prompt_sentinel.wrappers import wrap_tool_with_decoder
 wrapped_tool = wrap_tool_with_decoder(tool)
 ```
 
-You can wrap all tools used by your agent like this:
-
-```python
-self.tools = [wrap_tool_with_decoder(tool) for tool in self.tools]
-```
-
 This ensures tools receive decoded (original) values like passwords, API keys, or tokens.
 
 ## How It Works
