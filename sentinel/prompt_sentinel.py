@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, Callable
+from typing import Any, Callable, Dict, Union
 from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
@@ -65,55 +65,57 @@ def _is_likely_method(func: Callable) -> bool:
     return False
 
 
-def _process_response(response, secret_mapping):
-    # If response is a list, process each element recursively.
+def _process_langchain_message(
+        message: Union[AIMessage, HumanMessage, SystemMessage],
+        secret_mapping: Dict[str, str]
+) -> Union[AIMessage, HumanMessage, SystemMessage]:
+    if getattr(message, "role", None) in {"tool", "tool_calls"}:
+        return message
+
+    kwargs: Dict[str, Any] = {
+        "content": decode_text(message.content, secret_mapping),
+        "additional_kwargs": _process_response(message.additional_kwargs, secret_mapping),
+        "response_metadata": _process_response(message.response_metadata, secret_mapping),
+        "usage_metadata": _process_response(getattr(message, "usage_metadata", {}), secret_mapping),
+    }
+
+    if isinstance(message, AIMessage):
+        kwargs["tool_calls"] = _process_response(message.tool_calls, secret_mapping)
+
+    return message.copy(update=kwargs)
+
+
+def _process_dict(response: Dict[str, Any], secret_mapping: Dict[str, str]) -> Dict[str, Any]:
+    if response.get("role") in {"tool", "tool_calls"}:
+        return response
+
+    result = deepcopy(response)
+
+    if "content" in result and isinstance(result["content"], str):
+        result["content"] = decode_text(result["content"], secret_mapping)
+
+    for key, value in result.items():
+        result[key] = _process_response(value, secret_mapping)
+
+    return result
+
+
+def _process_response(
+        response: Any,
+        secret_mapping: Dict[str, str]
+) -> Any:
     if isinstance(response, list):
         return [_process_response(item, secret_mapping) for item in response]
 
-    # If response is a dict, decode 'content' and process nested values.
     if isinstance(response, dict):
-        role = response.get("role")
-        if role in {"tool", "tool_calls"}:
-            return response
-        response = deepcopy(response)
-        if "content" in response:
-            response["content"] = decode_text(response["content"], secret_mapping)
-        for key, value in response.items():
-            response[key] = _process_response(value, secret_mapping)
-        return response
+        return _process_dict(response, secret_mapping)
 
-    # If it's a LangChain message (e.g., AIMessage)
     if isinstance(response, (AIMessage, HumanMessage, SystemMessage)):
-        if getattr(response, "role", None) in {"tool", "tool_calls"}:
-            return response
+        return _process_langchain_message(response, secret_mapping)
 
-        sanitized_content = decode_text(response.content, secret_mapping)
-        sanitized_kwargs = _process_response(response.additional_kwargs, secret_mapping)
-        sanitized_meta = _process_response(response.response_metadata, secret_mapping)
-        sanitized_usage = _process_response(getattr(response, "usage_metadata", {}), secret_mapping)
-
-        if isinstance(response, AIMessage):
-            sanitized_tool_calls = _process_response(response.tool_calls, secret_mapping)
-            return response.copy(update={
-                "content": sanitized_content,
-                "additional_kwargs": sanitized_kwargs,
-                "response_metadata": sanitized_meta,
-                "usage_metadata": sanitized_usage,
-                "tool_calls": sanitized_tool_calls
-            })
-
-        return response.copy(update={
-            "content": sanitized_content,
-            "additional_kwargs": sanitized_kwargs,
-            "response_metadata": sanitized_meta,
-            "usage_metadata": sanitized_usage,
-        })
-
-    # If it's a string, decode it
     if isinstance(response, str):
         return decode_text(response, secret_mapping)
 
-    # Fallback: return as is
     return response
 
 
