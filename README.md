@@ -12,8 +12,9 @@
 - [License](#license)
 
 ## Introduction
-Prompt Sentinel is a Python library designed to help you protect sensitive data in your language model (LLM) interactions. It provides tools to detect, encode, and later decode sensitive information (e.g., API keys, passwords, tokens) in text before sending it to an LLM, ensuring that private or confidential information is not inadvertently exposed.
-
+Prompt Sentinel is a Python library that helps safeguard sensitive data during interactions with language models (LLMs). 
+It automatically sanitizes information like passwords, tokens, and secrets before sending input to the LLM, minimizing the risk of unintentional exposure. 
+Once the response is received, the original masked values are restored.
 ## Features
 
 - **Sensitive Data Detection:**  
