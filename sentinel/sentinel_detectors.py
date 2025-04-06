@@ -1,12 +1,13 @@
 import re
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
+import yaml
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from sentinel.utils import parse_json_output
 from functools import lru_cache
 import json
-
+import os
 
 def find_secret_positions(text: str, secrets: List[str]) -> List[Dict]:
     """
@@ -120,7 +121,7 @@ class PythonStringDataDetector(SecretDetector):
         Returns a function that performs secret detection by analyzing each token in the text
         using PythonStringData, and caches the results with lru_cache. The cache key will be the text input.
         """
-        from high_entropy_string import PythonStringData
+        from pkgs.high_entropy_strings import PythonStringData
         @lru_cache(maxsize=128)
         def _detect(text: str) -> List[Dict]:
             results = []
@@ -167,6 +168,45 @@ class PythonStringDataDetector(SecretDetector):
         except AttributeError:
             print("Direct cache inspection not supported on this Python version.")
         return cache_info
+
+
+class RegexSecretDetector(SecretDetector):
+    def __init__(self, yaml_path: Optional[str] = None):
+        """
+        :param pattern_config: Optional dict of secret types to regex patterns
+        :param yaml_path: Optional path to YAML file with secret type regex patterns
+        """
+        if yaml_path:
+            pattern_config = self._load_patterns_from_yaml(yaml_path)
+        else:
+            current_dir = os.path.dirname(__file__)
+            yaml_path = os.path.join(current_dir, 'secrets.yaml')
+            pattern_config = self._load_patterns_from_yaml(yaml_path)
+
+        if not pattern_config:
+            raise ValueError("You must provide either a pattern_config or a yaml_path.")
+
+        self.patterns = {key: re.compile(pattern) for key, pattern in pattern_config.items()}
+
+    def _load_patterns_from_yaml(self, path: str) -> Dict[str, str]:
+        with open(path, "r") as f:
+            data = yaml.safe_load(f)
+        if not isinstance(data, dict):
+            raise ValueError("YAML file must contain a dictionary mapping secret types to regex strings.")
+        return data
+
+    def detect(self, text: str) -> List[Dict]:
+        detected = []
+        for secret_type, pattern in self.patterns.items():
+            for match in pattern.finditer(text):
+                detected.append({
+                    "secret": match.group(),
+                    "start": match.start(),
+                    "end": match.end(),
+                    "type": secret_type
+                })
+        return detected
+
 
 
 class DummyDetector(SecretDetector):
