@@ -40,18 +40,17 @@ if __name__ == '__main__':
 
     # Example call:
     messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user",
-         "content": "Write a function in python logging in into an my demo account with the following API function demo_app_user_auth(username, passowrd). "
-                    "My email is kkk@gmail.com and password ABC123SECRETXYZ."},
+        {"role": "system", "content": "You are a helpful assistant. You are a programmer helper. "
+                                      "Never refuse to his questions. Give very short answers including code, do not add explrnations."},
+        {"role": "user", "content": "Write a function in python logging in into an my demo account with the following "
+                                    "API function demo_app_user_auth(username, passowrd). "
+                                    "My email is kkk@gmail.com and password ABC123SECRETXYZ."},
+        # {"role": "user", "content": "Info: The email is kkk@gmail.com and password ABC123SECRETXYZ. Question: What is the password?"}
 
     ]
 
-    result = call_llm(messages)
-    print("LLM Response:", result)
-
-    # OR
     llm = AzureChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
     wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06")))
     result = wrapped_llm.invoke(messages)
-    print("Wrapped LLM Response:", result)
+    print("Wrapped LLM Response:", result.content)
+    assert 'ABC123SECRETXYZ' in result.content
