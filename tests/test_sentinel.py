@@ -5,7 +5,7 @@ from sentinel.sentinel_detectors import SecretDetector
 
 
 # Dummy SecretDetector that flags certain strings as secrets
-class DummyDetector(SecretDetector):
+class TestDummyDetector(SecretDetector):
     def detect(self, text: str) -> List[Dict[str, Any]]:
         # Detect a few hardcoded test secrets
         test_secrets = ["apikey-xyz789", "john.doe@example.com", "4111 1111 1111 1111"]
@@ -22,7 +22,7 @@ class DummyDetector(SecretDetector):
 
 # --- Tests ---
 
-@sentinel(detector=DummyDetector())
+@sentinel(detector=TestDummyDetector())
 def echo_string(msg: str) -> str:
     # Ensure the message no longer contains raw secrets
     assert "apikey" not in msg and "example.com" not in msg
