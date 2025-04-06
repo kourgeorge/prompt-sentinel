@@ -180,11 +180,8 @@ class RegexSecretDetector(SecretDetector):
             pattern_config = self._load_patterns_from_yaml(yaml_path)
         else:
             current_dir = os.path.dirname(__file__)
-            yaml_path = os.path.join(current_dir, 'secrets.yaml')
+            yaml_path = os.path.join(current_dir, 'basic_secret_patterns.yaml')
             pattern_config = self._load_patterns_from_yaml(yaml_path)
-
-        if not pattern_config:
-            raise ValueError("You must provide either a pattern_config or a yaml_path.")
 
         self.patterns = {key: re.compile(pattern) for key, pattern in pattern_config.items()}
 
