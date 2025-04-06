@@ -19,20 +19,18 @@ Prompt Sentinel is a Python library designed to help you protect sensitive data 
 - **Sensitive Data Detection:**  
   Use detectors like `LLMSecretDetector` and `PythonStringDataDetector` to identify sensitive or private data in your text.
 
-- **Tokenization & Replacement:**  
-  Replace detected secrets with unique tokens (e.g., `__SECRET_1__`) so that the LLM operates on sanitized input. Later, you can decode the response to reinstate the original secrets.
-
-- **Automatic Secret Decoding in Tools:**  
-  Tool input and output are automatically decoded before and after execution, ensuring that tools receive original secrets (e.g., passwords, API keys) even when the LLM was only shown sanitized tokens.
+- **Automatic Sanitization through secret masking:**  
+  Mechanisms for replacing detected secrets with unique mask tokens (e.g., `__SECRET_1__`) so that the LLM operates on sanitized input. 
+- Following the LLM returned output, the response is decoded to reinstate the original secrets.
 
 - **Decorator Integration:**  
   Easily integrate secret sanitization into your LLM calling pipeline using the `@sentinel` decorator. Preprocess your messages before they reach the LLM and post-process the responses to decode tokens.
 
-- **Tool Wrapping:**  
-  Automatically wraps LangChain-compatible tools by intercepting the `_run()` method, decoding secrets before tool logic is invoked.
-
 - **Caching:**  
   Implement caching for repeated detections on the same text to reduce redundant API calls and improve performance.
+
+- **Async LLM calls**
+  Support async function/method LLM call decoration.
 
 ## Installation
 
@@ -100,14 +98,6 @@ Step-by-step flow:
 7. **Decode LLM Output using Secret Mapping**  
    Tokens are replaced with their original secrets using the stored mapping.
 
-8. **Check: Does the LLM Response Contain a Tool Call?**  
-   - If **yes**:  
-     a. Intercept the tool's `_run()` method  
-     b. Decode any secrets in the tool input using the same mapping  
-     c. Execute the tool with the original values
-   - If **no**:  
-     Return the decoded LLM response directly to the user.
-
 ## Customization
 
 - **Detectors:**  
@@ -115,9 +105,6 @@ Step-by-step flow:
 
 - **Context Management:**  
   Internally, a singleton context is used to persist secret mappings during LLM interaction and tool invocation. This ensures secrets encoded in the LLM prompt are automatically decoded before tool execution.
-
-- **Tool Wrapping:**  
-  To support sensitive data in tools, use `wrap_tool_with_decoder()` to transparently decode tool input before execution.
 
 - **Caching:**  
   The detectors can use caching to avoid redundant API calls. In the provided implementation of `LLMSecretDetector`, caching is handled via an instance variable (`_detect_cache`).
