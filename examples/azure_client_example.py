@@ -50,7 +50,8 @@ if __name__ == '__main__':
     ]
 
     llm = AzureChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
-    wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06")))
+    detector = LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06"))
+    wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=detector)
     result = wrapped_llm.invoke(messages)
     print("Wrapped LLM Response:", result.content)
     assert 'ABC123SECRETXYZ' in result.content
