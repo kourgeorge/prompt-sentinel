@@ -68,7 +68,7 @@ class LLMSecretDetector(SecretDetector):
                 "Analyze the following text and extract only those pieces of information that are sensitive or private. "
                 "Sensitive data includes API keys, passwords, tokens, sensitive personal information or any other information that could compromise security or safety if exposed. "
                 "Do not include any data that is not sensitive. "
-                "Do not extract already obfuscated tokens which follow the template '__SECRET_d__' (for example, '__SECRET_3__'). "
+                "Do not extract already obfuscated tokens which follow the template '__SECRET_X__' (for example, '__SECRET_3__'). "
                 "Return the result as a structured JSON output with the following schema: {\"secrets\": [string, ...]}.\n\n"
                 f"{self.output_parser.get_format_instructions()}\n\n"
                 f"Text: '''{text}'''"
@@ -206,7 +206,6 @@ class RegexSecretDetector(SecretDetector):
                     "type": secret_type
                 })
         return detected
-
 
 
 class DummyDetector(SecretDetector):
