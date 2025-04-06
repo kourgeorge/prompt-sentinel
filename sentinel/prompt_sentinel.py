@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Union, Tuple
 from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
@@ -119,54 +119,57 @@ def _process_response(
     return response
 
 
-def sentinel(detector: SecretDetector):
-    def decorator(func: Callable, ):
+def sentinel(
+    detector: SecretDetector,
+    sanitize_arg: Union[int, str] = 0
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
         is_method = _is_likely_method(func)
 
-        # Helper to sanitize arguments
-        def process_args(args):
-            secret_mapping = {}
+        def process_args(
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]
+        ) -> Tuple[Tuple[Any, ...], Dict[str, Any], Dict[str, str]]:
+            secret_mapping: Dict[str, str] = {}
             token_counter = [1]
-            # If there are no args, nothing to do.
-            if not args:
-                return args, secret_mapping
 
-            # Assume that for methods, args[0] is self and args[1] is input
-            if is_method:
-                input_data = args[1]
-                sanitized_input = deepcopy(input_data)
-                sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
-                new_args = (sanitized_input,) + args[2:]
-            else:
-                input_data = args[0]
-                sanitized_input = deepcopy(input_data)
-                sanitized_input = _sanitize_message(sanitized_input, secret_mapping, token_counter, detector)
-                new_args = (sanitized_input,) + args[1:]
-            return new_args, secret_mapping
+            # Nothing to sanitize
+            if not args and not kwargs:
+                return args, kwargs, secret_mapping
+
+            if isinstance(sanitize_arg, int):
+                idx = sanitize_arg + (1 if is_method else 0)
+                if idx < len(args):
+                    sanitized = deepcopy(args[idx])
+                    sanitized = _sanitize_message(sanitized, secret_mapping, token_counter, detector)
+                    args = args[1:idx] + (sanitized,) + args[idx + 1:] #do not pass  self.
+            elif isinstance(sanitize_arg, str):
+                if sanitize_arg in kwargs:
+                    sanitized = deepcopy(kwargs[sanitize_arg])
+                    sanitized = _sanitize_message(sanitized, secret_mapping, token_counter, detector)
+                    kwargs = dict(kwargs)
+                    kwargs[sanitize_arg] = sanitized
+
+            return args, kwargs, secret_mapping
 
         if asyncio.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
-                if not args:
-                    response = await func(*args, **kwargs)
-                    return _process_response(response, {})
-                new_args, secret_mapping = process_args(args)
-                response = await func(*new_args, **kwargs)
+                args, kwargs, secret_mapping = process_args(args, kwargs)
+                response = await func(*args, **kwargs)
                 return _process_response(response, secret_mapping)
-
             return async_wrapper
+
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                if not args:
-                    return func(*args, **kwargs)
-                new_args, secret_mapping = process_args(args)
-                response = func(*new_args, **kwargs)
+                args, kwargs, secret_mapping = process_args(args, kwargs)
+                response = func(*args, **kwargs)
                 return _process_response(response, secret_mapping)
-
             return sync_wrapper
 
     return decorator
+
 
 
 def detect_and_encode_text(
