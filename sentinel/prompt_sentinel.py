@@ -92,11 +92,21 @@ def _process_response(response, secret_mapping):
         sanitized_meta = _process_response(response.response_metadata, secret_mapping)
         sanitized_usage = _process_response(getattr(response, "usage_metadata", {}), secret_mapping)
 
+        if isinstance(response, AIMessage):
+            sanitized_tool_calls = _process_response(response.tool_calls, secret_mapping)
+            return response.copy(update={
+                "content": sanitized_content,
+                "additional_kwargs": sanitized_kwargs,
+                "response_metadata": sanitized_meta,
+                "usage_metadata": sanitized_usage,
+                "tool_calls": sanitized_tool_calls
+            })
+
         return response.copy(update={
             "content": sanitized_content,
             "additional_kwargs": sanitized_kwargs,
             "response_metadata": sanitized_meta,
-            "usage_metadata": sanitized_usage
+            "usage_metadata": sanitized_usage,
         })
 
     # If it's a string, decode it
@@ -108,7 +118,7 @@ def _process_response(response, secret_mapping):
 
 
 def sentinel(detector: SecretDetector):
-    def decorator(func: Callable):
+    def decorator(func: Callable, ):
         is_method = _is_likely_method(func)
 
         # Helper to sanitize arguments
