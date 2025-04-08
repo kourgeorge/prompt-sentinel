@@ -1,6 +1,2 @@
-langchain
-litellm
-openai
-pytest
-python-dotenv
 setuptools
+json
