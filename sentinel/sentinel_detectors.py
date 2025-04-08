@@ -1,13 +1,12 @@
 import re
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
-
 import yaml
-from langchain.output_parsers import ResponseSchema, StructuredOutputParser
-from sentinel.utils import parse_json_output
-from functools import lru_cache
 import json
 import os
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional
+from functools import lru_cache
+from sentinel.utils import extract_secrets_json
+
 
 def find_secret_positions(text: str, secrets: List[str]) -> List[Dict]:
     """
@@ -50,42 +49,34 @@ class TrustableLLM(ABC):
 
 
 class LLMSecretDetector(SecretDetector):
-    def __init__(self, trustable_llm: TrustableLLM):
+    def __init__(self, trustable_llm):
         """
-        :param trustable_llm: An object with a method `chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str`
+        :param trustable_llm: An object with a method `predict(text: str) -> str`
         """
         self.trustable_llm = trustable_llm
         self._cached_detect = self._build_cached_detect()
-        response_schemas = [
-            ResponseSchema(name="secrets", description="A list of sensitive or private data extracted from the text")
-        ]
-        self.output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
 
     def _build_cached_detect(self):
         @lru_cache(maxsize=128)
-        def _detect(text: str) -> List[Dict]:
+        def _detect(text: str) -> List[Dict[str, Any]]:
             prompt = (
                 "Analyze the following text and extract only those pieces of information that are sensitive or private. "
                 "Sensitive data includes API keys, passwords, tokens, sensitive personal information or any other information that could compromise security or safety if exposed. "
                 "Do not include any data that is not sensitive. "
                 "Do not extract already obfuscated tokens which follow the template '__SECRET_X__' (for example, '__SECRET_3__'). "
                 "Return the result as a structured JSON output with the following schema: {\"secrets\": [string, ...]}.\n\n"
-                f"{self.output_parser.get_format_instructions()}\n\n"
-                f"Text: '''{text}'''"
+                "Text: '''" + text + "'''"
             )
 
             try:
-                response_text = self.trustable_llm.predict(
-                    text=prompt,
-                )
+                response_text = self.trustable_llm.predict(prompt)
             except Exception as e:
                 print(f"Error calling LLM: {e}")
                 return []
 
             try:
-                parsed_output = self.output_parser.parse(str(response_text))
-                secret_list = parsed_output.get("secrets", [])
-                # secret_list = parse_json_output(response_text)
+                json_dict = extract_secrets_json(response_text)
+                secret_list = json_dict['secrets']
                 if not isinstance(secret_list, list):
                     print("LLM did not return a list. Response:", response_text)
                     return []
@@ -97,7 +88,7 @@ class LLMSecretDetector(SecretDetector):
 
         return _detect
 
-    def detect(self, text: str) -> List[Dict]:
+    def detect(self, text: str) -> List[Dict[str, Any]]:
         return self._cached_detect(text)
 
     def report_cache(self):
@@ -185,7 +176,8 @@ class RegexSecretDetector(SecretDetector):
 
         self.patterns = {key: re.compile(pattern) for key, pattern in pattern_config.items()}
 
-    def _load_patterns_from_yaml(self, path: str) -> Dict[str, str]:
+    @staticmethod
+    def _load_patterns_from_yaml(path: str) -> Dict[str, str]:
         with open(path, "r") as f:
             data = yaml.safe_load(f)
         if not isinstance(data, dict):
@@ -211,3 +203,64 @@ class DummyDetector(SecretDetector):
         A dummy detector that does nothing and returns an empty list.
         """
         return []
+
+
+try:
+    from langchain.output_parsers import ResponseSchema, StructuredOutputParser
+
+    class LangchainLLMSecretDetector(SecretDetector):
+        def __init__(self, trustable_llm):
+            """
+            :param trustable_llm: An object with a method `chat(messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> str`
+            """
+            self.trustable_llm = trustable_llm
+            self._cached_detect = self._build_cached_detect()
+            response_schemas = [
+                ResponseSchema(name="secrets", description="A list of sensitive or private data extracted from the text")
+            ]
+            self.output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
+
+        def _build_cached_detect(self):
+            @lru_cache(maxsize=128)
+            def _detect(text: str) -> List[Dict]:
+                prompt = (
+                    "Analyze the following text and extract only those pieces of information that are sensitive or private. "
+                    "Sensitive data includes API keys, passwords, tokens, sensitive personal information or any other information that could compromise security or safety if exposed. "
+                    "Do not include any data that is not sensitive. "
+                    "Do not extract already obfuscated tokens which follow the template '__SECRET_X__' (for example, '__SECRET_3__'). "
+                    "Return the result as a structured JSON output with the following schema: {\"secrets\": [string, ...]}.\n\n"
+                    f"{self.output_parser.get_format_instructions()}\n\n"
+                    f"Text: '''{text}'''"
+                )
+
+                try:
+                    response_text = self.trustable_llm.predict(
+                        text=prompt,
+                    )
+                except Exception as e:
+                    print(f"Error calling LLM: {e}")
+                    return []
+
+                try:
+                    parsed_output = self.output_parser.parse(str(response_text))
+                    secret_list = parsed_output.get("secrets", [])
+                    # secret_list = parse_json_output(response_text)
+                    if not isinstance(secret_list, list):
+                        print("LLM did not return a list. Response:", response_text)
+                        return []
+                except json.JSONDecodeError:
+                    print("Failed to decode LLM response as JSON. Response:", response_text)
+                    return []
+
+                return find_secret_positions(text, secret_list)
+
+            return _detect
+
+        def detect(self, text: str) -> List[Dict]:
+            return self._cached_detect(text)
+
+        def report_cache(self):
+            return self._cached_detect.cache_info()
+
+except ImportError:
+    LLMSecretDetectorLangchain = None

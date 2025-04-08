@@ -1,34 +1,28 @@
 import json
+import re
+from typing import Dict, List
 
 
-def parse_json_output(input_str):
+def extract_secrets_json(input_str: str) -> Dict[str, List[str]]:
     """
-    Parses a string containing JSON data wrapped in Markdown code fences (```json ... ```),
-    and returns the corresponding Python object.
-
-    Args:
-        input_str (str): The input string containing JSON data.
-
-    Returns:
-        object: The Python object parsed from the JSON string.
-
-    Raises:
-        json.JSONDecodeError: If the JSON parsing fails.
+    Extracts the first valid JSON object with structure {"secrets": [string, ...]} from the input.
+    Returns {"secrets": []} if extraction or validation fails.
     """
-    # Remove Markdown code fences if present
-    stripped = input_str.strip()
-    if stripped.startswith("```") and stripped.endswith("```"):
-        # Split into lines and remove the first and last lines (the fences)
-        lines = stripped.splitlines()
-        # Remove the starting fence if it starts with ```json or ```
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        # Remove the ending fence
-        if lines and lines[-1].startswith("```"):
-            lines = lines[:-1]
-        json_str = "\n".join(lines)
-    else:
-        json_str = input_str
+    # Match candidate JSON objects (non-greedy)
+    candidate_jsons = re.findall(r'\{.*?\}', input_str, re.DOTALL)
 
-    # Parse and return the JSON data
-    return json.loads(json_str)
+    for candidate in candidate_jsons:
+        try:
+            obj = json.loads(candidate)
+            if (
+                isinstance(obj, dict)
+                and "secrets" in obj
+                and isinstance(obj["secrets"], list)
+                and all(isinstance(s, str) for s in obj["secrets"])
+            ):
+                return obj
+        except json.JSONDecodeError:
+            continue
+
+    # Fallback if no valid match found
+    return {"secrets": []}
