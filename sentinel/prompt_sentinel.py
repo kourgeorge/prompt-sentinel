@@ -69,8 +69,8 @@ def _process_langchain_message(
         message: Union[AIMessage, HumanMessage, SystemMessage],
         secret_mapping: Dict[str, str]
 ) -> Union[AIMessage, HumanMessage, SystemMessage]:
-    if getattr(message, "role", None) in {"tool", "tool_calls"}:
-        return message
+    # if getattr(message, "role", None) in {"tool", "tool_calls"}:
+    #     return message
 
     kwargs: Dict[str, Any] = {
         "content": decode_text(message.content, secret_mapping),
@@ -124,14 +124,16 @@ def sentinel(
     sanitize_arg: Union[int, str] = 0
 ) -> Callable:
     def decorator(func: Callable) -> Callable:
-        is_method = _is_likely_method(func)
 
         def process_args(
+            func: Callable,
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]
         ) -> Tuple[Tuple[Any, ...], Dict[str, Any], Dict[str, str]]:
             secret_mapping: Dict[str, str] = {}
             token_counter = [1]
+
+            is_method = _is_likely_method(func)
 
             # Nothing to sanitize
             if not args and not kwargs:
@@ -142,7 +144,7 @@ def sentinel(
                 if idx < len(args):
                     sanitized = deepcopy(args[idx])
                     sanitized = _sanitize_message(sanitized, secret_mapping, token_counter, detector)
-                    args = args[1:idx] + (sanitized,) + args[idx + 1:] #do not pass  self.
+                    args = args[(1 if inspect.ismethod(func) else 0):idx] + (sanitized,) + args[idx + 1:] #do not pass  self.
             elif isinstance(sanitize_arg, str):
                 if sanitize_arg in kwargs:
                     sanitized = deepcopy(kwargs[sanitize_arg])
@@ -155,7 +157,7 @@ def sentinel(
         if asyncio.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
-                args, kwargs, secret_mapping = process_args(args, kwargs)
+                args, kwargs, secret_mapping = process_args(func, args, kwargs)
                 response = await func(*args, **kwargs)
                 return _process_response(response, secret_mapping)
             return async_wrapper
@@ -163,13 +165,12 @@ def sentinel(
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                args, kwargs, secret_mapping = process_args(args, kwargs)
+                args, kwargs, secret_mapping = process_args(func, args, kwargs)
                 response = func(*args, **kwargs)
                 return _process_response(response, secret_mapping)
             return sync_wrapper
 
     return decorator
-
 
 
 def detect_and_encode_text(
@@ -200,6 +201,10 @@ def detect_and_encode_text(
         last_idx = end
     sanitized_text += text[last_idx:]
     set_secret_mapping(secret_mapping)
+    print(f"============================================"
+          f"\n{len(secrets_info)} Secrets were detected in the LLM prompt."
+          f"\nSanitized Input: {secret['secret']}\n"
+          f"============================================")
     return sanitized_text
 
 
