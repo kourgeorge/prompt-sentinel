@@ -1,36 +1,19 @@
-from typing import List
-
 from dotenv import load_dotenv
-from langchain_community.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from openai import AzureOpenAI
-from sentinel.sentinel_detectors import LLMSecretDetector
-from sentinel.prompt_sentinel import sentinel
+from sentinel.sentinel_detectors import LLMSecretDetector, TrustableLLM
 from sentinel.wrappers import wrap_chat_model_with_sentinel
-
+from typing import List
 load_dotenv()  # take environment variables
 
 
-@sentinel(detector=LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06")))
-def call_llm(messages: List[dict]) -> str:
-    """
-    Call an LLM with a history of messages and return the response.
-    """
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.0,
-            max_tokens=400,
-            seed=123
-        )
-    except Exception as e:
-        print(f"Error calling LLM: {e}.\nThe Messages: {messages}")
-        return ""
+class AzureTrustable(TrustableLLM):
+    def __init__(self, model):
+        self.model = model
 
-    text_response = ""
-    if response.choices:
-        text_response = response.choices[0].message.content
-    return text_response
+    def predict(self, text: str, **kwargs) -> str:
+        response = self.model.invoke([{"role": "user", "content": text}],  **kwargs)
+        return response.content
 
 
 if __name__ == '__main__':
@@ -50,7 +33,7 @@ if __name__ == '__main__':
     ]
 
     llm = AzureChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
-    detector = LLMSecretDetector(AzureChatOpenAI(model="gpt-4o-2024-08-06"))
+    detector = LLMSecretDetector(AzureTrustable(AzureChatOpenAI(model="gpt-4-turbo-2024-04-09")))
     wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=detector)
     result = wrapped_llm.invoke(messages)
     print("Wrapped LLM Response:", result.content)

@@ -1,8 +1,8 @@
 from typing import List
 import litellm
 from dotenv import load_dotenv
-from sentinel_detectors import LLMSecretDetector, TrustableLLM
-from prompt_sentinel import sentinel
+from sentinel.sentinel_detectors import LLMSecretDetector, TrustableLLM
+from sentinel.prompt_sentinel import sentinel
 
 load_dotenv()  # Load .env credentials like LITELLM_API_KEY
 
@@ -12,10 +12,10 @@ class LiteLLMTrustable(TrustableLLM):
     def __init__(self, model: str):
         self.model = model
 
-    def invoke(self, messages: List[dict], **kwargs) -> str:
+    def predict(self, text: str, **kwargs) -> str:
         response = litellm.completion(
             model=self.model,
-            messages=messages,
+            messages=[{"role": "user", "content":text}],
             **kwargs
         )
         return response['choices'][0]['message']['content']
