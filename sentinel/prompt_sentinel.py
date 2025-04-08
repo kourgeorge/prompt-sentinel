@@ -4,8 +4,32 @@ from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
 import asyncio
-from langchain.schema import AIMessage, HumanMessage, SystemMessage  # or BaseMessage
 from sentinel.secret_context import set_secret_mapping
+
+
+try:
+    from langchain.schema import AIMessage, HumanMessage, SystemMessage  # or BaseMessage
+
+    def _process_langchain_message(
+            message: Union[AIMessage, HumanMessage, SystemMessage],
+            secret_mapping: Dict[str, str]
+    ) -> Union[AIMessage, HumanMessage, SystemMessage]:
+        # if getattr(message, "role", None) in {"tool", "tool_calls"}:
+        #     return message
+
+        kwargs: Dict[str, Any] = {
+            "content": decode_text(message.content, secret_mapping),
+            "additional_kwargs": _process_response(message.additional_kwargs, secret_mapping),
+            "response_metadata": _process_response(message.response_metadata, secret_mapping),
+            "usage_metadata": _process_response(getattr(message, "usage_metadata", {}), secret_mapping),
+        }
+
+        if isinstance(message, AIMessage):
+            kwargs["tool_calls"] = _process_response(message.tool_calls, secret_mapping)
+
+        return message.copy(update=kwargs)
+except ImportError:
+    pass
 
 
 def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, detector: SecretDetector) -> Any:
@@ -65,26 +89,6 @@ def _is_likely_method(func: Callable) -> bool:
     return False
 
 
-def _process_langchain_message(
-        message: Union[AIMessage, HumanMessage, SystemMessage],
-        secret_mapping: Dict[str, str]
-) -> Union[AIMessage, HumanMessage, SystemMessage]:
-    # if getattr(message, "role", None) in {"tool", "tool_calls"}:
-    #     return message
-
-    kwargs: Dict[str, Any] = {
-        "content": decode_text(message.content, secret_mapping),
-        "additional_kwargs": _process_response(message.additional_kwargs, secret_mapping),
-        "response_metadata": _process_response(message.response_metadata, secret_mapping),
-        "usage_metadata": _process_response(getattr(message, "usage_metadata", {}), secret_mapping),
-    }
-
-    if isinstance(message, AIMessage):
-        kwargs["tool_calls"] = _process_response(message.tool_calls, secret_mapping)
-
-    return message.copy(update=kwargs)
-
-
 def _process_dict(response: Dict[str, Any], secret_mapping: Dict[str, str]) -> Dict[str, Any]:
     if response.get("role") in {"tool", "tool_calls"}:
         return response
@@ -110,11 +114,24 @@ def _process_response(
     if isinstance(response, dict):
         return _process_dict(response, secret_mapping)
 
-    if isinstance(response, (AIMessage, HumanMessage, SystemMessage)):
-        return _process_langchain_message(response, secret_mapping)
-
     if isinstance(response, str):
         return decode_text(response, secret_mapping)
+
+    try:
+        if isinstance(response, (AIMessage, HumanMessage, SystemMessage)):
+            return _process_langchain_message(response, secret_mapping)
+    except NameError:
+        pass  # Either the message classes or function is not defined
+
+    # require testing test
+    if hasattr(response, '__dict__'):
+        for attr in vars(response):
+            value = getattr(response, attr)
+            if isinstance(value, str):
+                setattr(response, attr, decode_text(value, secret_mapping))
+            else:
+                setattr(response, attr, _process_response(value, secret_mapping))
+        return response
 
     return response
 
