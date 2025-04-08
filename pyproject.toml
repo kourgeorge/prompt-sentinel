@@ -5,10 +5,13 @@ description = "A package for sentinel detectors and utilities"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
+
 authors = [
   { name = "George Kour", email = "kourgeorge@gmail.com" }
 ]
-keywords = ["LLM", "security", "privacy", "langchain", "secret detection"]
+
+keywords = ["LLM", "security", "privacy", "sanitization", "masking", "prompt sanitization", "secret detection"]
+
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -18,17 +21,34 @@ classifiers = [
   "Programming Language :: Python :: 3.8",
   "Operating System :: OS Independent"
 ]
+
 dependencies = [
-  # core dependencies (leave empty or add minimal ones if needed)
+  # Minimal core dependencies, if any
 ]
 
 [project.optional-dependencies]
 langchain = ["langchain>=0.1.0"]
-dev = ["langchain>=0.1.0", "pytest", "black", "flake8", "mypy"]
+examples = [
+  "matplotlib",
+  "jupyter",
+  "pandas",
+  "langchain>=0.1.0"
+]
+test = ["pytest", "coverage"]
+dev = [
+  "langchain>=0.1.0",
+  "pytest",
+  "black",
+  "flake8",
+  "mypy",
+  "jupyter",
+  "matplotlib",
+  "pandas"
+]
 
 [project.scripts]
 sentinel = "sentinel.sentinel_detectors:main"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
