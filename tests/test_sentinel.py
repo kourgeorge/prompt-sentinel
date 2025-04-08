@@ -36,7 +36,7 @@ def test_echo_string():
     assert "__SECRET_" not in output
 
 
-@sentinel(detector=DummyDetector())
+@sentinel(detector=TestDummyDetector())
 def process_messages(messages: List[Dict[str, str]]) -> str:
     for m in messages:
         assert "example.com" not in m["content"]
@@ -50,8 +50,17 @@ def test_process_messages():
     assert "__SECRET_" not in result
 
 
+class DummyLLMStaticMethod:
+    @staticmethod
+    @sentinel(detector=TestDummyDetector())
+    def chat(messages: List[Dict[str, str]]) -> str:
+        for m in messages:
+            assert "apikey" not in m["content"]
+        return messages[0]['content']
+
+
 class DummyLLM:
-    @sentinel(detector=DummyDetector())
+    @sentinel(detector=TestDummyDetector())
     def chat(self, messages: List[Dict[str, str]]) -> str:
         for m in messages:
             assert "apikey" not in m["content"]
@@ -64,7 +73,7 @@ def test_class_method():
     assert "apikey-xyz789" in response
 
 
-@sentinel(detector=DummyDetector())
+@sentinel(detector=TestDummyDetector())
 def fake_llm(messages: List[Dict[str, str]]) -> str:
     # Return the obfuscated token in response — decorator should decode it
     return "Token: __SECRET_1__"
@@ -77,7 +86,7 @@ def test_output_decoding():
     assert "__SECRET_" not in out
 
 
-@sentinel(detector=DummyDetector())
+@sentinel(detector=TestDummyDetector())
 def nested_input(input: Any) -> str:
     return str(input)
 
