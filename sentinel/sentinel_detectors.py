@@ -264,3 +264,19 @@ try:
 
 except ImportError:
     LLMSecretDetectorLangchain = None
+
+
+try:
+    from transformers import pipeline
+
+    class LocalHFLLM(TrustableLLM):
+        def __init__(self, model_name: str = 'Qwen/Qwen2.5-1.5B-Instruct', token=os.getenv('HUGGING_FACE_HUB_TOKEN')):
+            self.generator = pipeline("text-generation", model=model_name, device=0, token=token)
+
+        def predict(self, text: str,  **kwargs) -> str:
+            outputs = self.generator(text, max_new_tokens=512, do_sample=False)
+            return outputs[0]['generated_text']
+
+
+except ImportError:
+    HuggingFaceLLM = None
