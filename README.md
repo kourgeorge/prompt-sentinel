@@ -35,20 +35,13 @@ def call_llm(messages):
     return response
 ```
 
-### Wrapping an BaseChatModel object
-
-```python
-llm = BaseChatModel(...)
-wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(...))
-response = wrapped_llm.invoke(messages)
-```
 
 ### Wrapping an entire class
 
 ```python
-llm = BaseChatModel(...)
-wrapped_llm = instrument_model_class(llm, detector=LLMSecretDetector(...), methods_to_wrap=['invoke', 'ainvoke', 'stream', 'astream'])
-response = wrapped_llm.invoke(messages)
+InstrumentedClass = instrument_model_class(BaseChatModel, detector=LLMSecretDetector(...), methods_to_wrap=['invoke', 'ainvoke', 'stream', 'astream'])
+llm = InstrumentedClass()
+response = llm.invoke(messages)
 ```
 
 ## Features

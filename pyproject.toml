@@ -1,6 +1,6 @@
 [project]
 name = "prompt-sentinel"
-version = "0.1.3"
+version = "0.1.4"
 description = "A package for sentinel detectors and utilities"
 readme = "README.md"
 requires-python = ">=3.8"
