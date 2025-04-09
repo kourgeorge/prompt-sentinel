@@ -1,6 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from sentinel import wrap_chat_model_class_with_sentinel, LLMSecretDetector, TrustableLLM
+from sentinel import instrument_model_class, LLMSecretDetector, TrustableLLM
 import os
 load_dotenv()  # take environment variables
 
@@ -58,9 +58,8 @@ async def main():
         "Text: {text}"
     )
 
-    llm = FakeChatModel()
     detector = LLMSecretDetector(LocalHFLLM(model_name='Qwen/Qwen2.5-1.5B-Instruct'), prompt_format=custom_prompt)
-    wrapped_llm = wrap_chat_model_class_with_sentinel(llm, detector)
+    wrapped_llm = instrument_model_class(FakeChatModel, detector)()
     result = await wrapped_llm.ainvoke(messages)
 
     print("Wrapped LLM Response:", result.content)

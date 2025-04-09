@@ -2,7 +2,7 @@ import asyncio
 from typing import Callable
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
-from sentinel import wrap_chat_model_class_with_sentinel, LLMSecretDetector
+from sentinel import instrument_model_class, LLMSecretDetector
 
 load_dotenv()  # take environment variables
 
@@ -28,8 +28,6 @@ class FakeChatModel:
 
 
 async def main():
-
-
     messages = [
         {"role": "user", "content": "Write a function in python logging in into an my demo account with the following "
                                     "API function demo_app_user_auth(username, passowrd). "
@@ -37,10 +35,10 @@ async def main():
     ]
 
     model = "gpt-4o-2024-08-06"
-    llm = FakeChatModel()
     detector = LLMSecretDetector(AzureChatOpenAI(model=model))
 
-    wrapped_llm = wrap_chat_model_class_with_sentinel(llm, detector)
+    InstrumentedFakeChat = instrument_model_class(FakeChatModel, detector)
+    wrapped_llm = InstrumentedFakeChat()
 
     result = await wrapped_llm.ainvoke(messages)
 
@@ -48,6 +46,5 @@ async def main():
     assert 'ABC123SECRETXYZ' in result.content
 
 
-# --- Run the test ---
 if __name__ == '__main__':
     asyncio.run(main())
