@@ -3,7 +3,7 @@ import yaml
 import json
 import os
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union, Callable
 from functools import lru_cache
 from sentinel.utils import extract_secrets_json
 
@@ -48,28 +48,37 @@ class TrustableLLM(ABC):
         pass
 
 
+DEFAULT_PROMPT_TEMPLATE = (
+    "Analyze the following text and extract only those pieces of information that are sensitive or private. "
+    "Sensitive data includes API keys, passwords, tokens, sensitive personal information or any other information that could compromise security or safety if exposed. "
+    "Do not include any data that is not sensitive. "
+    "Do not extract already obfuscated tokens which follow the template '__SECRET_X__' (for example, '__SECRET_3__'). "
+    "Return the result as a structured JSON output with the following schema: {{\"secrets\": [string, ...]}}.\n\n"
+    "Text: ''' {text} '''"
+)
+
+
 class LLMSecretDetector(SecretDetector):
-    def __init__(self, trustable_llm):
+    def __init__(self,
+                 trustable_llm,
+                 prompt_format: Union[str, Callable[[str], str]] = DEFAULT_PROMPT_TEMPLATE
+    ):
         """
         :param trustable_llm: An object with a method `predict(text: str) -> str`
+        :param prompt_format: Either a string template with a '{text}' placeholder,
+                              or a function that takes `text` and returns a prompt.
         """
         self.trustable_llm = trustable_llm
         self._cached_detect = self._build_cached_detect()
+        self.prompt = prompt_format
 
     def _build_cached_detect(self):
         @lru_cache(maxsize=128)
         def _detect(text: str) -> List[Dict[str, Any]]:
-            prompt = (
-                "Analyze the following text and extract only those pieces of information that are sensitive or private. "
-                "Sensitive data includes API keys, passwords, tokens, sensitive personal information or any other information that could compromise security or safety if exposed. "
-                "Do not include any data that is not sensitive. "
-                "Do not extract already obfuscated tokens which follow the template '__SECRET_X__' (for example, '__SECRET_3__'). "
-                "Return the result as a structured JSON output with the following schema: {\"secrets\": [string, ...]}.\n\n"
-                "Text: '''" + text + "'''"
-            )
 
+            formatted_prompt = self.prompt.format(text=text)
             try:
-                response_text = self.trustable_llm.predict(prompt)
+                response_text = self.trustable_llm.predict(formatted_prompt)
             except Exception as e:
                 print(f"Error calling LLM: {e}")
                 return []
@@ -264,19 +273,3 @@ try:
 
 except ImportError:
     LLMSecretDetectorLangchain = None
-
-
-try:
-    from transformers import pipeline
-
-    class LocalHFLLM(TrustableLLM):
-        def __init__(self, model_name: str = 'Qwen/Qwen2.5-1.5B-Instruct', token=os.getenv('HUGGING_FACE_HUB_TOKEN')):
-            self.generator = pipeline("text-generation", model=model_name, device=0, token=token)
-
-        def predict(self, text: str,  **kwargs) -> str:
-            outputs = self.generator(text, max_new_tokens=512, do_sample=False)
-            return outputs[0]['generated_text']
-
-
-except ImportError:
-    HuggingFaceLLM = None
