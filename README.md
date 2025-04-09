@@ -12,9 +12,45 @@
 - [License](#license)
 
 ## Introduction
-Prompt Sentinel is a Python library that helps safeguard sensitive data during interactions with language models (LLMs). 
-It automatically sanitizes information like passwords, tokens, and secrets before sending input to the LLM, minimizing the risk of unintentional exposure. 
-Once the response is received, the original masked values are restored.
+Prompt Sentinel is a Python library designed to protect sensitive data during interactions with language models (LLMs). 
+It automatically detects and sanitizes confidential information—such as passwords, tokens, and secrets—before sending input to the LLM, reducing the risk of accidental exposure. 
+Once a response is received, the original values are seamlessly restored. 
+This makes the masking process transparent to the client, enabling smooth and uninterrupted interactions, including function calling.
+
+Prompt Sentinel’s focuses on *simplicity*—it works out of the box without requiring complex proxy-based LLM deployments or infrastructure changes. 
+It offers flexible detection options, ranging from regular expressions to trusted local or external LLMs, enabling accurate identification of sensitive data such as personally identifiable information (PII) and secrets. 
+Both detection and restoration processes are easy to set up and highly configurable to suit a wide range of applications.
+To avoid redundant detection calls—especially when relying on LLM-based detection—Prompt Sentinel includes a smart caching mechanism that boosts efficiency and significantly reduces overhead.
+
+## Usage
+
+Below are examples of how to use Prompt Sentinel in different LLM pipelines. For detailed examples, please refer to the `examples` directory in the repository.
+
+### Decorating an LLM Function Call
+
+```python
+@sentinel(detector=LLMSecretDetector(...))
+def call_llm(messages):
+    # Call the LLM with sanitized messages
+    return response
+```
+
+### Wrapping an BaseChatModel object
+
+```python
+llm = BaseChatModel(...)
+wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(...))
+response = wrapped_llm.invoke(messages)
+```
+
+### Wrapping an entire class
+
+```python
+llm = BaseChatModel(...)
+wrapped_llm = instrument_model_class(llm, detector=LLMSecretDetector(...), methods_to_wrap=['invoke', 'ainvoke', 'stream', 'astream'])
+response = wrapped_llm.invoke(messages)
+```
+
 ## Features
 
 - **Sensitive Data Detection:**  
@@ -43,36 +79,6 @@ pip install prompt-sentinel
 
 *Note: This package requires Python 3.7 or higher.*
 
-## Usage
-
-Below are examples of how to use Prompt Sentinel in different LLM pipelines. For detailed examples, please refer to the `examples` directory in the repository.
-
-### Decorating an LLM Function Call
-
-```python
-@sentinel(detector=LLMSecretDetector(...))
-def call_llm(messages):
-    # Call the LLM with sanitized messages
-    return response
-```
-
-### Wrapping an Entire BaseChatModel
-
-```python
-llm = BaseChatModel(...)
-wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=LLMSecretDetector(...))
-response = wrapped_llm.invoke(messages)
-```
-
-### Wrapping LangChain Tools to Automatically Decode Input
-
-```python
-from prompt_sentinel.wrappers import wrap_tool_with_decoder
-
-wrapped_tool = wrap_tool_with_decoder(tool)
-```
-
-This ensures tools receive decoded (original) values like passwords, API keys, or tokens.
 
 ## How It Works
 
