@@ -118,12 +118,14 @@ except ImportError:
 
 
 def wrap_chat_model_class_with_sentinel(model_instance, detector: SecretDetector,
-                                        methods_to_wrap=['invoke', 'ainvoke', 'stream', 'astream']):
+                                        methods_to_wrap=None):
     """
     Wraps the key LLM call methods of the given model instance with the sentinel decorator.
     This patches the model's class so that the methods are overridden.
     """
 
+    if methods_to_wrap is None:
+        methods_to_wrap = ['invoke', 'ainvoke', 'stream', 'astream']
     for method_name in methods_to_wrap:
         if hasattr(model_instance, method_name):
             original_method = getattr(model_instance, method_name)
