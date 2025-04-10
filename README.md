@@ -1,5 +1,9 @@
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/1ab19351-9eca-4212-b19a-a37fb3555f5b" alt="Prompt Sentinel Logo" width="250"/>
+  <br/>
+  <img src="https://static.pepy.tech/badge/prompt-sentinel" alt="Downloads"/>
+</div>
 
-# Prompt Sentinel
 
 ## Table of Contents
 - [Introduction](#introduction)
