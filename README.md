@@ -2,10 +2,12 @@
   <img src="https://github.com/user-attachments/assets/1ab19351-9eca-4212-b19a-a37fb3555f5b" alt="Prompt Sentinel Logo" width="250"/>
 
 
-| Package | ![PyPI Latest Release](https://img.shields.io/pypi/v/prompt-sentinel.svg) ![PyPI Downloads](https://static.pepy.tech/badge/prompt-sentinel)|
-| --- | --- |
-| License |  [![License - MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kourgeorge/prompt-sentinel/blob/main/LICENSE)  |
-| Powered By | [George Kour](kour.me) |
+| **Package**       | ![PyPI Latest Release](https://img.shields.io/pypi/v/prompt-sentinel.svg) ![PyPI Downloads](https://static.pepy.tech/badge/prompt-sentinel) |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| **License**       | [![License - MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kourgeorge/prompt-sentinel/blob/main/LICENSE) |
+| **Documentation** | [📘 Prompt Sentinel Docs](https://kourgeorge.github.io/prompt-sentinel/)                                                          |
+| **Powered By**    | [George Kour](https://kour.me)                                                                                                    |
+
 
 </div>
 
