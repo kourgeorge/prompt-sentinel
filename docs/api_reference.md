@@ -8,7 +8,7 @@ To install Prompt Sentinel, use the following command:
 pip install prompt-sentinel
 ```
 
-For more details, refer to the [Installation Instructions](installation.md).
+For more details, refer to the [Installation Instructions](installation.html).
 
 ---
 
@@ -98,3 +98,4 @@ You can implement your own secret detectors by extending the `SecretDetector` ab
 ## Caching
 
 The detectors can use caching to avoid redundant API calls. In the provided implementation of `LLMSecretDetector`, caching is handled via an instance variable (`_detect_cache`).
+`

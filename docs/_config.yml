@@ -1,0 +1,5 @@
+title: Prompt Sentinel Documentation
+description: Documentation for Prompt Sentinel, a Python library for protecting sensitive data in LLM interactions.
+theme: jekyll-theme-cayman
+markdown: kramdown
+permalink: pretty

@@ -98,6 +98,9 @@ detector = PythonStringDataDetector()
 # Use the detector in your LLM pipeline
 ```
 
+For more details on creating custom detectors, refer to the [Custom Prompts](custom_prompts.html) page.
+
 ### Custom Detectors
 
 You can implement your own secret detectors by extending the `SecretDetector` abstract base class. Check out the provided implementations in the `sentinel_detectors` module for guidance.
+`

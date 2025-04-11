@@ -25,24 +25,25 @@ response = llm.invoke(messages)
 
 ## Example: Simple LLM Call
 
-Refer to `simple_llm_call_example.py` for a straightforward example of making an LLM call with Prompt Sentinel.
+Refer to [`simple_llm_call_example.py`](examples/simple_llm_call_example.py) for a straightforward example of making an LLM call with Prompt Sentinel.
 
 ## Example: Azure Client
 
-The `azure_client_example.py` demonstrates how to use Prompt Sentinel with Azure client.
+Refer to [`azure_client_example.py`](examples/azure_client_example.py) for usage with Azure.
 
 ## Example: Local VLLM Detector
 
-Use `local_vllm_detector_example.py` to see how a local VLLM detector is implemented.
+Refer to [`local_vllm_detector_example.py`](examples/local_vllm_detector_example.py) for a local VLLM detector.
 
 ## Example: Local HF Detector
 
-The `local_hf_detector_example.py` provides an example of using a local Hugging Face detector.
+Refer to [`local_hf_detector_example.py`](examples/local_hf_detector_example.py) for a local Hugging Face detector.
 
 ## Example: Async Azure Calls
 
-For asynchronous calls with Azure, refer to `azure_async_example.py`.
+Refer to [`azure_async_example.py`](examples/azure_async_example.py) for asynchronous Azure calls.
 
 ## Example: LiteLLM
 
-The `litellm_example.py` shows how to use LiteLLM with Prompt Sentinel.
+Refer to [`litellm_example.py`](examples/litellm_example.py) for LiteLLM usage.
+`

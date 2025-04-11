@@ -105,4 +105,7 @@ if __name__ == '__main__':
 
 ## Customization
 
+For more details on customization, refer to the [Custom Prompts](custom_prompts.html) page.
+
 The Local Hugging Face Detector can be customized by modifying the model name, token, and prompt format. This allows users to tailor the detection process to their specific needs and use cases.
+`
