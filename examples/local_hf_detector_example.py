@@ -34,11 +34,11 @@ class FakeChatModel:
 
     def invoke(self, messages):
         assert "ABC123SECRETXYZ" not in messages[0]["content"]
-        return FakeResponse("demo_app_user_auth(kkk@gmail.com, ABC123SECRETXYZ).")
+        return FakeResponse("demo_app_user_auth(kkk@gmail.com, __SECRET_1__).")
 
     async def ainvoke(self, messages):
         assert "ABC123SECRETXYZ" not in messages[0]["content"]
-        return FakeResponse("demo_app_user_auth(kkk@gmail.com, ABC123SECRETXYZ).")
+        return FakeResponse("demo_app_user_auth(kkk@gmail.com, __SECRET_1__).")
 
     def untouched_method(self):
         return "leave me alone"

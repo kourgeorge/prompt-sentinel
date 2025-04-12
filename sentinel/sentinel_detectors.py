@@ -171,19 +171,26 @@ class PythonStringDataDetector(SecretDetector):
 
 
 class RegexSecretDetector(SecretDetector):
-    def __init__(self, yaml_path: Optional[str] = None):
+    def __init__(self, yaml_path: Optional[str] = None, yaml_string: Optional[str] = None):
         """
-        :param pattern_config: Optional dict of secret types to regex patterns
         :param yaml_path: Optional path to YAML file with secret type regex patterns
+        :param yaml_string: Optional YAML string with secret type regex patterns
         """
-        if yaml_path:
+        if yaml_string:
+            pattern_config = self._load_patterns_from_yaml_string(yaml_string)
+        elif yaml_path:
             pattern_config = self._load_patterns_from_yaml(yaml_path)
         else:
             current_dir = os.path.dirname(__file__)
-            yaml_path = os.path.join(current_dir, 'basic_secret_patterns.yaml')
-            pattern_config = self._load_patterns_from_yaml(yaml_path)
+            default_yaml_path = os.path.join(current_dir, 'basic_secret_patterns.yaml')
+            pattern_config = self._load_patterns_from_yaml(default_yaml_path)
 
         self.patterns = {key: re.compile(pattern) for key, pattern in pattern_config.items()}
+
+
+    def _load_patterns_from_yaml_string(self, yaml_string: str) -> dict:
+        """Load regex patterns from a YAML string."""
+        return yaml.safe_load(yaml_string)
 
     @staticmethod
     def _load_patterns_from_yaml(path: str) -> Dict[str, str]:
