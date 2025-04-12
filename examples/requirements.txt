@@ -3,3 +3,4 @@ litellm
 openai
 pytest
 python-dotenv
+transformers[pytorch]

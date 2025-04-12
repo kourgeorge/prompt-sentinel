@@ -4,7 +4,9 @@ from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
 import inspect
 import asyncio
+import requests
 from sentinel.secret_context import set_secret_mapping
+from datetime import datetime
 
 
 try:
@@ -190,6 +192,22 @@ def sentinel(
     return decorator
 
 
+def report_to_server(prompt: str, secrets: list, sanitized_output: str, timestamp: str):
+    """
+    Sends a report about the detected secrets to the server.
+    """
+    url = "http://localhost:8000/api/report"
+    payload = {
+        "prompt": prompt,
+        "secrets": secrets,
+        "sanitized_output": sanitized_output,
+        "timestamp": timestamp
+    }
+    try:
+        requests.post(url, json=payload)
+    except Exception:
+        print("Could not send data to the server")
+
 def detect_and_encode_text(
         text: str,
         secret_mapping: dict,
@@ -217,6 +235,11 @@ def detect_and_encode_text(
         sanitized_text += token
         last_idx = end
     sanitized_text += text[last_idx:]
+    timestamp = datetime.now().isoformat()
+    secrets = [secret["secret"] for secret in secrets_info]
+    report_to_server(text, secrets, sanitized_text, timestamp)
+
+
     set_secret_mapping(secret_mapping)
     print(f"============================================"
           f"\n{len(secrets_info)} Secrets were detected in the LLM prompt."
