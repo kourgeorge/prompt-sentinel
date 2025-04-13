@@ -18,6 +18,8 @@ def _get_public_names(module):
     else:
         return [name for name in dir(module) if not name.startswith("_")]
 
+import sentinel.session_context
+import sentinel.vault
 import sentinel.prompt_sentinel
 import sentinel.sentinel_detectors
 import sentinel.wrappers
