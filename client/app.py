@@ -22,25 +22,31 @@ def load_data():
        st.error(f"Error connecting to the server: {e}")
        return pd.DataFrame()
 
-def format_start_time(row):
-    """Formats the Start Time column."""
+def format_timestamp(row):
+    """Formats the timestamp column."""
     try:
-        start_time = datetime.datetime.fromisoformat(row["Start Time"])
-        return start_time.strftime('%m/%d/%Y, %H:%M:%S')
+        timestamp = datetime.datetime.fromisoformat(row["timestamp"])
+        return timestamp.strftime('%m/%d/%Y, %H:%M:%S')
     except (ValueError, KeyError):
         return "Invalid Date"
 
-def format_latency(row):
-    """Formats the Latency column."""
-    if isinstance(row["Latency"], float):
-        return f"{row['Latency']:.2f}s"
-    return "Invalid Latency"
-
-def format_error(row):
-  """Formats the Error column."""
-  if row["Error"] is None:
+def format_secrets(row):
+    """Formats the secrets column."""
+    secrets = row.get("secrets", [])
+    if secrets:
+        return ", ".join(secrets)
     return ""
-  return row["Error"]
+
+def format_sanitized_output(row):
+    """Formats the sanitized output column."""
+    sanitized_output = row.get("sanitized_output", "")
+    if sanitized_output:
+        return sanitized_output
+    return ""
+
+
+
+
 
 def display_data_table(df):
     """Displays the DataFrame in a styled, sortable table with pagination."""
@@ -50,9 +56,10 @@ def display_data_table(df):
         return pd.DataFrame()
 
     # Format columns
-    df['Start Time'] = df.apply(format_start_time, axis=1)
-    df['Latency'] = df.apply(format_latency, axis=1)
-    df['Error'] = df.apply(format_error, axis=1)
+    if 'timestamp' in df.columns:
+        df['timestamp'] = df.apply(format_timestamp, axis=1)
+    df['secrets'] = df.apply(format_secrets, axis=1)
+    df['sanitized_output'] = df.apply(format_sanitized_output, axis=1)
 
 
     # Configure AgGrid options
@@ -67,15 +74,12 @@ def display_data_table(df):
 
 
     # Customize columns
-    gb.configure_column("Name", headerName="Name", width=150)
-    gb.configure_column("Input", headerName="Input", wrapText=True, autoHeight=True)
-    gb.configure_column("Output", headerName="Output", wrapText=True, autoHeight=True)
-    gb.configure_column("Error", headerName="Error", width=250)
-    gb.configure_column("Start Time", headerName="Start Time", width=150)
-    gb.configure_column("Latency", headerName="Latency", width=100)
-    gb.configure_column("Dataset", headerName="Dataset", width=100)
-    gb.configure_column("Annotation Queue", headerName="Annotation Queue", width=150)
-    gb.configure_column("Tokens", headerName="Tokens", width=80)
+    gb.configure_column("app_id", headerName="App ID", width=150)
+    gb.configure_column("session_id", headerName="Session ID", width=150)
+    gb.configure_column("prompt", headerName="Prompt", wrapText=True, autoHeight=True)
+    gb.configure_column("secrets", headerName="Secrets", width=250)
+    gb.configure_column("sanitized_output", headerName="Sanitized Output", wrapText=True, autoHeight=True)
+    gb.configure_column("timestamp", headerName="Timestamp", width=150)
 
     # Enable pagination
     gb.configure_pagination(enabled=True, paginationAutoPageSize=False, paginationPageSize=10)
