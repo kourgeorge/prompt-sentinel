@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from sentinel.sentinel_detectors import LLMSecretDetector
 from sentinel.prompt_sentinel import sentinel
-from sentinel.wrappers import wrap_chat_model_with_sentinel
+from sentinel.wrappers import instrument_model_class
 
 load_dotenv()  # load .env variables (like Azure keys)
 
@@ -21,9 +21,9 @@ async def main():
     ]
 
     model = "gpt-4o-2024-08-06"
-    llm = AzureChatOpenAI(model=model, temperature=0)
     detector = LLMSecretDetector(AzureChatOpenAI(model=model))
-    wrapped_llm = wrap_chat_model_with_sentinel(llm, detector=detector)
+    InstrumentedAzureOpenAI = instrument_model_class(AzureChatOpenAI, detector=detector)
+    wrapped_llm = InstrumentedAzureOpenAI(model=model, temperature=0)
 
     result = await wrapped_llm.ainvoke(messages)
 
