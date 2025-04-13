@@ -58,9 +58,13 @@ class Vault:
             The shorter placeholder that maps to the secret.
         """
         # Generate a short hash-based placeholder
-        short_hash = hashlib.sha256(secret.encode()).hexdigest()[:self.hash_length]
+        short_hash = Vault._hash_secret(secret, self.hash_length)
         self._add_secret(short_hash, secret)
         return short_hash
+
+    @staticmethod
+    def _hash_secret(txt: str, hash_length: int = 8) -> str:
+        return hashlib.sha256(txt.encode()).hexdigest()[:hash_length]
 
     def get_secret_mapping(self) -> Dict[str, str]:
         """
