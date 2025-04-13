@@ -151,7 +151,7 @@ def sentinel(
 
     # Initialize the session context if not provided
     session_context = session_context or SessionContext(
-        app_token=ps_app_id, server_url=ps_server_url
+        app_id=ps_app_id, server_url=ps_server_url
     )
 
     def decorator(func: Callable) -> Callable:

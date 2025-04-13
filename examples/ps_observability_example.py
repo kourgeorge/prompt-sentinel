@@ -3,7 +3,7 @@ from sentinel.prompt_sentinel import sentinel
 from sentinel.session_context import SessionContext
 
 # Initialize the singleton SessionContext with provided APP_ID and URL.
-session = SessionContext(app_token='42215214', server_url='http://ps.example.com')
+session = SessionContext(app_id='42215214', server_url='http://ps.example.com')
 
 
 # DummyDetector uses a regex to detect AWS keys.
@@ -21,7 +21,7 @@ detector = DummyDetector()
 
 
 # The sentinel decorator sanitizes input and reports detected secrets.
-@sentinel(detector, session_context=session)
+@sentinel(detector)
 def process_message(message):
     return message
 
