@@ -50,6 +50,8 @@ def create_table_if_not_exists():
         with conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS reports (
+                    app_id TEXT, 
+                    session_id TEXT,
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     prompt TEXT,
                     secrets TEXT,
@@ -72,8 +74,8 @@ def save_report_to_db(data: ReportData):
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO reports (app_id, session_id, prompt, secrets, sanitized_output, timestamp)
-                VALUES (?, ?, ?, ?)
-            """, (data.prompt, str(data.secrets), data.sanitized_output, data.timestamp))
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (data.app_id, data.session_id, data.prompt, str(data.secrets), data.sanitized_output, data.timestamp))
             conn.commit()
             report_id = cursor.lastrowid
             logger.info(f"Saved report with ID: {report_id}")
