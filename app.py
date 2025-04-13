@@ -4,6 +4,8 @@ import pandas as pd
 
 import main
 
+main.main()
+
 def load_data():
     conn = sqlite3.connect('reports.db')
     query = "SELECT * FROM reports"
