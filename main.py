@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 DATABASE_FILE = "reports.db"
 
 class ReportData(BaseModel):
+    app_id: str
+    session_id: str
     prompt: str
     secrets: List[str]
     sanitized_output: str
@@ -69,7 +71,7 @@ def save_report_to_db(data: ReportData):
         with conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO reports (prompt, secrets, sanitized_output, timestamp)
+                INSERT INTO reports (app_id, session_id, prompt, secrets, sanitized_output, timestamp)
                 VALUES (?, ?, ?, ?)
             """, (data.prompt, str(data.secrets), data.sanitized_output, data.timestamp))
             conn.commit()
