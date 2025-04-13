@@ -2,11 +2,10 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Union, Tuple
 from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
+from sentinel.session_context import SessionContext
+from sentinel.vault import Vault  # Import Vault if needed elsewhere
 import inspect
 import asyncio
-import requests
-from sentinel.secret_context import set_secret_mapping
-from datetime import datetime
 
 
 try:
@@ -14,27 +13,27 @@ try:
 
     def _process_langchain_message(
             message: Union[AIMessage, HumanMessage, SystemMessage],
-            secret_mapping: Dict[str, str]
+            session_context: SessionContext
     ) -> Union[AIMessage, HumanMessage, SystemMessage]:
         # if getattr(message, "role", None) in {"tool", "tool_calls"}:
         #     return message
 
         kwargs: Dict[str, Any] = {
-            "content": decode_text(message.content, secret_mapping),
-            "additional_kwargs": _process_response(message.additional_kwargs, secret_mapping),
-            "response_metadata": _process_response(message.response_metadata, secret_mapping),
-            "usage_metadata": _process_response(getattr(message, "usage_metadata", {}), secret_mapping),
+            "content": decode_text(message.content, session_context),
+            "additional_kwargs": _process_response(message.additional_kwargs, session_context),
+            "response_metadata": _process_response(message.response_metadata, session_context),
+            "usage_metadata": _process_response(getattr(message, "usage_metadata", {}), session_context),
         }
 
         if isinstance(message, AIMessage):
-            kwargs["tool_calls"] = _process_response(message.tool_calls, secret_mapping)
+            kwargs["tool_calls"] = _process_response(message.tool_calls, session_context)
 
         return message.copy(update=kwargs)
 except ImportError:
     pass
 
 
-def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, detector: SecretDetector) -> Any:
+def _sanitize_message(message: Any, session_context: SessionContext, token_counter: list, detector: SecretDetector) -> Any:
     """
     Sanitizes a single message-like representation.
     - If it's a string, sanitize the text.
@@ -47,12 +46,12 @@ def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, d
     if isinstance(message, dict):
         if "content" in message and isinstance(message["content"], str):
             message["content"] = detect_and_encode_text(
-                message["content"], secret_mapping, token_counter, detector
+                message["content"], session_context, token_counter, detector
             )
         return message
     # Check for plain string.
     if hasattr(message, "content") and isinstance(getattr(message, "content"), str):
-        sanitized_content = detect_and_encode_text(message.content, secret_mapping, token_counter, detector)
+        sanitized_content = detect_and_encode_text(message.content, session_context, token_counter, detector)
         try:
             # Attempt to create a new instance if the class accepts 'content'.
             return message.__class__(role=message.role, content=sanitized_content)
@@ -62,18 +61,18 @@ def _sanitize_message(message: Any, secret_mapping: dict, token_counter: list, d
             message.content = sanitized_content
             return message
     elif isinstance(message, str):
-        return detect_and_encode_text(message, secret_mapping, token_counter, detector)
+        return detect_and_encode_text(message, session_context, token_counter, detector)
     # Check for list or tuple.
     elif isinstance(message, (list, tuple)):
         sanitized = []
         for item in message:
-            sanitized.append(_sanitize_message(item, secret_mapping, token_counter, detector))
+            sanitized.append(_sanitize_message(item, session_context, token_counter, detector))
         return type(message)(sanitized)
     # Check if it has a 'content' attribute.
 
     else:
         # Fallback: convert to string.
-        return detect_and_encode_text(str(message), secret_mapping, token_counter, detector)
+        return detect_and_encode_text(str(message), session_context, token_counter, detector)
 
 
 def _is_likely_method(func: Callable) -> bool:
@@ -91,37 +90,37 @@ def _is_likely_method(func: Callable) -> bool:
     return False
 
 
-def _process_dict(response: Dict[str, Any], secret_mapping: Dict[str, str]) -> Dict[str, Any]:
+def _process_dict(response: Dict[str, Any], session_context: SessionContext) -> Dict[str, Any]:
     if response.get("role") in {"tool", "tool_calls"}:
         return response
 
     result = deepcopy(response)
 
     if "content" in result and isinstance(result["content"], str):
-        result["content"] = decode_text(result["content"], secret_mapping)
+        result["content"] = decode_text(result["content"], session_context)
 
     for key, value in result.items():
-        result[key] = _process_response(value, secret_mapping)
+        result[key] = _process_response(value, session_context)
 
     return result
 
 
 def _process_response(
         response: Any,
-        secret_mapping: Dict[str, str]
+        session_context: SessionContext
 ) -> Any:
     if isinstance(response, list):
-        return [_process_response(item, secret_mapping) for item in response]
+        return [_process_response(item, session_context) for item in response]
 
     if isinstance(response, dict):
-        return _process_dict(response, secret_mapping)
+        return _process_dict(response, session_context)
 
     if isinstance(response, str):
-        return decode_text(response, secret_mapping)
+        return decode_text(response, session_context)
 
     try:
         if isinstance(response, (AIMessage, HumanMessage, SystemMessage)):
-            return _process_langchain_message(response, secret_mapping)
+            return _process_langchain_message(response, session_context)
     except NameError:
         pass  # Either the message classes or function is not defined
 
@@ -130,9 +129,9 @@ def _process_response(
         for attr in vars(response):
             value = getattr(response, attr)
             if isinstance(value, str):
-                setattr(response, attr, decode_text(value, secret_mapping))
+                setattr(response, attr, decode_text(value, session_context))
             else:
-                setattr(response, attr, _process_response(value, secret_mapping))
+                setattr(response, attr, _process_response(value, session_context))
         return response
 
     return response
@@ -140,53 +139,58 @@ def _process_response(
 
 def sentinel(
     detector: SecretDetector,
+    session_context: SessionContext = None,  # Keep parameter for flexibility
     sanitize_arg: Union[int, str] = 0
 ) -> Callable:
+    # Use the singleton SessionContext if none is provided
+    session_context = session_context or SessionContext(
+        project_token="default_token", server_url="http://default.server.url"
+    )
+
     def decorator(func: Callable) -> Callable:
 
         def process_args(
             func: Callable,
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]
-        ) -> Tuple[Tuple[Any, ...], Dict[str, Any], Dict[str, str]]:
-            secret_mapping: Dict[str, str] = {}
+        ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
             token_counter = [1]
 
             is_method = _is_likely_method(func)
 
             # Nothing to sanitize
             if not args and not kwargs:
-                return args, kwargs, secret_mapping
+                return args, kwargs
 
             if isinstance(sanitize_arg, int):
                 idx = sanitize_arg + (1 if is_method else 0)
                 if idx < len(args):
                     sanitized = deepcopy(args[idx])
-                    sanitized = _sanitize_message(sanitized, secret_mapping, token_counter, detector)
-                    args = args[(1 if inspect.ismethod(func) else 0):idx] + (sanitized,) + args[idx + 1:] #do not pass  self.
+                    sanitized = _sanitize_message(sanitized, session_context, token_counter, detector)
+                    args = args[(1 if inspect.ismethod(func) else 0):idx] + (sanitized,) + args[idx + 1:]
             elif isinstance(sanitize_arg, str):
                 if sanitize_arg in kwargs:
                     sanitized = deepcopy(kwargs[sanitize_arg])
-                    sanitized = _sanitize_message(sanitized, secret_mapping, token_counter, detector)
+                    sanitized = _sanitize_message(sanitized, session_context, token_counter, detector)
                     kwargs = dict(kwargs)
                     kwargs[sanitize_arg] = sanitized
 
-            return args, kwargs, secret_mapping
+            return args, kwargs
 
         if asyncio.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
-                args, kwargs, secret_mapping = process_args(func, args, kwargs)
+                args, kwargs = process_args(func, args, kwargs)
                 response = await func(*args, **kwargs)
-                return _process_response(response, secret_mapping)
+                return _process_response(response, session_context)
             return async_wrapper
 
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                args, kwargs, secret_mapping = process_args(func, args, kwargs)
+                args, kwargs = process_args(func, args, kwargs)
                 response = func(*args, **kwargs)
-                return _process_response(response, secret_mapping)
+                return _process_response(response, session_context)
             return sync_wrapper
 
     return decorator
@@ -210,7 +214,7 @@ def report_to_server(prompt: str, secrets: list, sanitized_output: str, timestam
 
 def detect_and_encode_text(
         text: str,
-        secret_mapping: dict,
+        session_context: SessionContext,
         token_counter: list,
         detector: SecretDetector
 ) -> str:
@@ -230,17 +234,11 @@ def detect_and_encode_text(
         start, end = secret["start"], secret["end"]
         sanitized_text += text[last_idx:start]
         token = f"__SECRET_{token_counter[0]}__"
-        secret_mapping[token] = secret["secret"]
+        session_context.add_secret(token, secret["secret"])  # Use Vault via SessionContext
         token_counter[0] += 1
         sanitized_text += token
         last_idx = end
     sanitized_text += text[last_idx:]
-    timestamp = datetime.now().isoformat()
-    secrets = [secret["secret"] for secret in secrets_info]
-    report_to_server(text, secrets, sanitized_text, timestamp)
-
-
-    set_secret_mapping(secret_mapping)
     print(f"============================================"
           f"\n{len(secrets_info)} Secrets were detected in the LLM prompt."
           f"\nSanitized Input: {secret['secret']}\n"
@@ -248,10 +246,12 @@ def detect_and_encode_text(
     return sanitized_text
 
 
-def decode_text(text: str, secret_mapping: dict) -> str:
+def decode_text(text: str, session_context: SessionContext) -> str:
     """
     Replace tokens in the text with the original sensitive data.
     """
+    secret_mapping = session_context.get_secret_mapping()  # Use Vault via SessionContext
     for token, original in secret_mapping.items():
         text = text.replace(token, original)
     return text
+

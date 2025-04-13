@@ -22,24 +22,18 @@ class LiteLLMTrustable(TrustableLLM):
 
 
 # Decorated function with secret redaction
-# @sentinel(detector=LLMSecretDetector(LiteLLMTrustable("gpt-4o-2024-08-06")))
+@sentinel(detector=LLMSecretDetector(LiteLLMTrustable("gpt-4o-2024-08-06")))
 def call_llm(messages: List[dict]) -> str:
     """
     Calls LiteLLM with messages. Secrets are sanitized by @sentinel.
     """
     try:
-        response = litellm.completion.create(
+        response = litellm.completion(
             model="gpt-4o-2024-08-06",
             messages=messages,
             temperature=0.0,
             max_tokens=400,
-            seed=123,
-            extra_body={
-                "metadata": {
-                    "guardrails": ["presidio-pre-guard"],
-                    "guardrail_config": {"language": "es"}
-                }
-            }
+            seed=123
         )
     except Exception as e:
         print(f"Error calling LLM: {e}.\nThe Messages: {messages}")
@@ -59,3 +53,4 @@ if __name__ == '__main__':
 
     result = call_llm(messages)
     print("LLM Response:", result)
+

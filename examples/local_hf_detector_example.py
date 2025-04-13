@@ -1,51 +1,33 @@
 import asyncio
-from dotenv import load_dotenv
-from sentinel import instrument_model_class, LLMSecretDetector, TrustableLLM
+from transformers import pipeline
 import os
-load_dotenv()  # take environment variables
+from sentinel import instrument_model_class, LLMSecretDetector, TrustableLLM
 
 
-try:
-    from transformers import pipeline
+class LocalHFLLM(TrustableLLM):
+    def __init__(self, model_name: str = 'Qwen/Qwen2.5-1.5B-Instruct', token=os.getenv('HUGGING_FACE_HUB_TOKEN')):
+        self.generator = pipeline("text-generation", model=model_name, device=0, token=token)
 
-    class LocalHFLLM(TrustableLLM):
-        def __init__(self, model_name: str = 'Qwen/Qwen2.5-1.5B-Instruct', token=os.getenv('HUGGING_FACE_HUB_TOKEN')):
-            self.generator = pipeline("text-generation", model=model_name, device=0, token=token)
-
-        def predict(self, text: str,  **kwargs) -> str:
-            outputs = self.generator(text, max_new_tokens=512, do_sample=False, temperature=0)
-            full_output = outputs[0]['generated_text']
-            # Remove the input prompt from the beginning
-            generated_part = full_output[len(text):].strip()
-            return generated_part
-
-
-except ImportError:
-    HuggingFaceLLM = None
-
-
-class FakeResponse:
-    def __init__(self, content):
-        self.role = 'AI'
-        self.content = content
+    def predict(self, text: str, **kwargs) -> str:
+        outputs = self.generator(text, max_new_tokens=512, do_sample=False, temperature=0)
+        full_output = outputs[0]['generated_text']
+        # Remove the input prompt from the beginning
+        generated_part = full_output[len(text):].strip()
+        return generated_part
 
 
 class FakeChatModel:
 
     def invoke(self, messages):
         assert "ABC123SECRETXYZ" not in messages[0]["content"]
-        return FakeResponse("demo_app_user_auth(kkk@gmail.com, __SECRET_1__).")
+        return {"role": "ai", "content": "demo_app_user_auth(kkk@gmail.com, __SECRET_1__)."}
 
     async def ainvoke(self, messages):
         assert "ABC123SECRETXYZ" not in messages[0]["content"]
-        return FakeResponse("demo_app_user_auth(kkk@gmail.com, __SECRET_1__).")
-
-    def untouched_method(self):
-        return "leave me alone"
+        return {"role": "ai", "content": "demo_app_user_auth(kkk@gmail.com, __SECRET_1__)."}
 
 
 async def main():
-
     messages = [
         {"role": "user", "content": "Write a function in python logging in into an my demo account with the following "
                                     "API function demo_app_user_auth(username, passowrd). "
