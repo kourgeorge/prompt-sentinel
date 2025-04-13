@@ -1,12 +1,12 @@
+import os
 from copy import deepcopy
+from datetime import datetime
 from typing import Any, Callable, Dict, Union, Tuple
 from functools import wraps
 from sentinel.sentinel_detectors import SecretDetector
 from sentinel.session_context import SessionContext
-from sentinel.vault import Vault  # Import Vault if needed elsewhere
 import inspect
 import asyncio
-import uuid
 
 
 try:
@@ -141,11 +141,17 @@ def _process_response(
 def sentinel(
     detector: SecretDetector,
     session_context: SessionContext = None,  # Keep parameter for flexibility
-    sanitize_arg: Union[int, str] = 0
+    sanitize_arg: Union[int, str] = 0,
+    ps_app_id: str = None,
+    ps_server_url: str = None
 ) -> Callable:
-    # Use the singleton SessionContext if none is provided
+    # Use the provided project/server IDs or fallback to environment variables
+    ps_app_id = ps_app_id or os.getenv("PS_APP_ID", "default_token")
+    ps_server_url = ps_server_url or os.getenv("PS_SERVER_URL", "http://default.server.url")
+
+    # Initialize the session context if not provided
     session_context = session_context or SessionContext(
-        project_token="default_token", server_url="http://default.server.url"
+        app_token=ps_app_id, server_url=ps_server_url
     )
 
     def decorator(func: Callable) -> Callable:
@@ -220,6 +226,12 @@ def detect_and_encode_text(
         sanitized_text += placeholder
         last_idx = end
     sanitized_text += text[last_idx:]
+
+    timestamp = datetime.now().isoformat()
+    secrets = [secret["secret"] for secret in secrets_info]
+    session_context.report_to_server(text, secrets, sanitized_text, timestamp)
+
+
     print(f"============================================"
           f"\n{len(secrets_info)} Secrets were detected in the LLM prompt."
           f"\nSanitized Input: {secret['secret']}\n"
