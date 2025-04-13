@@ -1,17 +1,24 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
-
-import main
-
-main.main()
+import requests
+import os
 
 def load_data():
-    conn = sqlite3.connect('reports.db')
-    query = "SELECT * FROM reports"
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+    """Fetches data from the server's /api/reports endpoint."""
+    server_url = os.environ.get("SERVER_URL", "http://localhost:8000")
+    api_endpoint = f"{server_url}/api/reports"
+    try:
+        response = requests.get(api_endpoint)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        data = response.json()
+        if "reports" in data:
+            return pd.DataFrame(data["reports"])
+        else:
+            st.error("Invalid data format received from the server.")
+            return pd.DataFrame()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error connecting to the server: {e}")
+        return pd.DataFrame()
 
 st.title("Reports Database")
 data = load_data()
