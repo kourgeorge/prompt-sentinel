@@ -1,2 +1,2 @@
 streamlit
-pip install streamlit-aggrid
+streamlit-aggrid
