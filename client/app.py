@@ -7,7 +7,7 @@ import os
 
 def load_data():
     """Fetches data from the server's /api/reports endpoint."""
-    server_url = os.environ.get("SERVER_URL", "http://localhost:8000")
+    server_url = os.environ.get("SERVER_URL", "https://ps-server-lihl.onrender.com")
     api_endpoint = f"{server_url}/api/reports"
     try:
         response = requests.get(api_endpoint)
