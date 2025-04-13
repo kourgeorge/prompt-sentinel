@@ -38,7 +38,7 @@ class SessionContext:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, app_token: str, server_url: str = None, session_id: str = None):
+    def __init__(self, app_id: str, server_url: str = None, session_id: str = None):
         """
         Initialize the SessionContext instance.
 
@@ -55,7 +55,7 @@ class SessionContext:
         """
         if self._initialized:
             return  # Avoid reinitializing the singleton instance
-        self.project_token = app_token
+        self.app_id = app_id
         self.server_url = server_url  # Allow server_url to be None
         self.vault = Vault()  # Use Vault for secret management
         self.session_id = session_id or str(uuid.uuid4())
@@ -119,7 +119,7 @@ class SessionContext:
 
         url = f"{self.server_url}/api/report"
         payload = {
-            "project_token": self.project_token,
+            "app_id": self.app_id,
             "session_id": self.session_id,
             "prompt": prompt,
             "secrets": secrets,
