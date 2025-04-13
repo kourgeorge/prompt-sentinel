@@ -1,4 +1,6 @@
 from typing import Dict
+import uuid
+import hashlib  # Add import for hashing
 
 
 class Vault:
@@ -15,42 +17,46 @@ class Vault:
         A dictionary that maps tokens to their corresponding secrets.
     """
 
-    def __init__(self):
+    def __init__(self, hash_length: int = 8):
         """
-        Initialize the Vault with an empty secret mapping.
+        Initialize the Vault with an empty secret mapping and a configurable hash length.
+
+        Parameters:
+        ----------
+        hash_length : int, optional
+            The length of the hash used for generating placeholders (default is 8).
         """
         self.secret_mapping: Dict[str, str] = {}
+        self.hash_length = hash_length
 
-    def add_secret(self, token: str, secret: str):
+    def _add_secret(self, placeholder: str, secret: str):
         """
         Add a secret to the secret mapping.
 
         Parameters:
         ----------
-        token : str
-            The token that will be used as a placeholder for the secret.
+        placeholder : str
+            The placeholder that will be used as a reference for the secret.
 
         secret : str
             The sensitive data to be stored securely.
         """
-        self.secret_mapping[token] = secret
+        self.secret_mapping[placeholder] = secret
 
-    def get_secret_mapping(self) -> Dict[str, str]:
+    def add_secret_and_get_placeholder(self, secret: str) -> str:
         """
-        Retrieve the current secret mapping.
+        Add a secret to the secret mapping and generate a shorter unique placeholder for it.
+
+        Parameters:
+        ----------
+        secret : str
+            The sensitive data to be stored securely.
 
         Returns:
         -------
-        Dict[str, str]
-            A dictionary containing all token-secret mappings.
+        str
+            The shorter placeholder that maps to the secret.
         """
-        return self.secret_mapping
-
-    def clear_secrets(self):
-        """
-        Clear all secrets from the secret mapping.
-
-        This method removes all stored token-secret mappings, effectively
-        resetting the Vault.
-        """
-        self.secret_mapping.clear()
+        # Generate a short hash-based placeholder
+        short_hash = hashlib.sha256(secret.encode()).hexdigest()[:self.hash_length]
+        placeholder

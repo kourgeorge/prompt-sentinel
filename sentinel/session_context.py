@@ -67,19 +67,19 @@ class SessionContext:
         self.session_id = session_id or str(uuid.uuid4())
         self._initialized = True
 
-    def add_secret(self, token: str, secret: str):
+    def add_secret(self, placeholder: str, secret: str):
         """
         Add a secret to the vault.
 
         Parameters:
         ----------
-        token : str
-            The token that will be used as a placeholder for the secret.
+        placeholder : str
+            The placeholder that will be used as a reference for the secret.
 
         secret : str
             The sensitive data to be stored securely.
         """
-        self.vault.add_secret(token, secret)
+        self.vault.add_secret(placeholder, secret)
 
     def get_secret_mapping(self) -> Dict[str, str]:
         """
@@ -88,7 +88,7 @@ class SessionContext:
         Returns:
         -------
         Dict[str, str]
-            A dictionary containing all token-secret mappings.
+            A dictionary containing all placeholder-secret mappings.
         """
         return self.vault.get_secret_mapping()
 
@@ -132,3 +132,4 @@ class SessionContext:
             requests.post(url, json=payload)
         except Exception:
             print("Could not send data to the server")
+

@@ -6,6 +6,7 @@ from sentinel.session_context import SessionContext
 from sentinel.vault import Vault  # Import Vault if needed elsewhere
 import inspect
 import asyncio
+import uuid
 
 
 try:
@@ -33,7 +34,7 @@ except ImportError:
     pass
 
 
-def _sanitize_message(message: Any, session_context: SessionContext, token_counter: list, detector: SecretDetector) -> Any:
+def _sanitize_message(message: Any, session_context: SessionContext, detector: SecretDetector) -> Any:
     """
     Sanitizes a single message-like representation.
     - If it's a string, sanitize the text.
@@ -46,12 +47,12 @@ def _sanitize_message(message: Any, session_context: SessionContext, token_count
     if isinstance(message, dict):
         if "content" in message and isinstance(message["content"], str):
             message["content"] = detect_and_encode_text(
-                message["content"], session_context, token_counter, detector
+                message["content"], session_context, detector
             )
         return message
     # Check for plain string.
     if hasattr(message, "content") and isinstance(getattr(message, "content"), str):
-        sanitized_content = detect_and_encode_text(message.content, session_context, token_counter, detector)
+        sanitized_content = detect_and_encode_text(message.content, session_context, detector)
         try:
             # Attempt to create a new instance if the class accepts 'content'.
             return message.__class__(role=message.role, content=sanitized_content)
@@ -61,18 +62,18 @@ def _sanitize_message(message: Any, session_context: SessionContext, token_count
             message.content = sanitized_content
             return message
     elif isinstance(message, str):
-        return detect_and_encode_text(message, session_context, token_counter, detector)
+        return detect_and_encode_text(message, session_context, detector)
     # Check for list or tuple.
     elif isinstance(message, (list, tuple)):
         sanitized = []
         for item in message:
-            sanitized.append(_sanitize_message(item, session_context, token_counter, detector))
+            sanitized.append(_sanitize_message(item, session_context, detector))
         return type(message)(sanitized)
     # Check if it has a 'content' attribute.
 
     else:
         # Fallback: convert to string.
-        return detect_and_encode_text(str(message), session_context, token_counter, detector)
+        return detect_and_encode_text(str(message), session_context, detector)
 
 
 def _is_likely_method(func: Callable) -> bool:
@@ -154,7 +155,6 @@ def sentinel(
             args: Tuple[Any, ...],
             kwargs: Dict[str, Any]
         ) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
-            token_counter = [1]
 
             is_method = _is_likely_method(func)
 
@@ -166,12 +166,12 @@ def sentinel(
                 idx = sanitize_arg + (1 if is_method else 0)
                 if idx < len(args):
                     sanitized = deepcopy(args[idx])
-                    sanitized = _sanitize_message(sanitized, session_context, token_counter, detector)
+                    sanitized = _sanitize_message(sanitized, session_context, detector)
                     args = args[(1 if inspect.ismethod(func) else 0):idx] + (sanitized,) + args[idx + 1:]
             elif isinstance(sanitize_arg, str):
                 if sanitize_arg in kwargs:
                     sanitized = deepcopy(kwargs[sanitize_arg])
-                    sanitized = _sanitize_message(sanitized, session_context, token_counter, detector)
+                    sanitized = _sanitize_message(sanitized, session_context, detector)
                     kwargs = dict(kwargs)
                     kwargs[sanitize_arg] = sanitized
 
@@ -199,7 +199,6 @@ def sentinel(
 def detect_and_encode_text(
         text: str,
         session_context: SessionContext,
-        token_counter: list,
         detector: SecretDetector
 ) -> str:
     """
@@ -217,10 +216,8 @@ def detect_and_encode_text(
     for secret in secrets_info:
         start, end = secret["start"], secret["end"]
         sanitized_text += text[last_idx:start]
-        token = f"__SECRET_{token_counter[0]}__"
-        session_context.add_secret(token, secret["secret"])  # Use Vault via SessionContext
-        token_counter[0] += 1
-        sanitized_text += token
+        placeholder = session_context.vault.add_secret_and_get_placeholder(secret["secret"])  # Use Vault to manage placeholder
+        sanitized_text += placeholder
         last_idx = end
     sanitized_text += text[last_idx:]
     print(f"============================================"
@@ -232,10 +229,11 @@ def detect_and_encode_text(
 
 def decode_text(text: str, session_context: SessionContext) -> str:
     """
-    Replace tokens in the text with the original sensitive data.
+    Replace placeholders in the text with the original sensitive data.
     """
     secret_mapping = session_context.get_secret_mapping()  # Use Vault via SessionContext
-    for token, original in secret_mapping.items():
-        text = text.replace(token, original)
+    for placeholder, original in secret_mapping.items():
+        text = text.replace(placeholder, original)
     return text
+
 
