@@ -59,4 +59,25 @@ class Vault:
         """
         # Generate a short hash-based placeholder
         short_hash = hashlib.sha256(secret.encode()).hexdigest()[:self.hash_length]
-        placeholder
+        self._add_secret(short_hash, secret)
+        return short_hash
+
+    def get_secret_mapping(self) -> Dict[str, str]:
+        """
+        Retrieve the current secret mapping.
+
+        Returns:
+        -------
+        Dict[str, str]
+            A dictionary containing all token-secret mappings.
+        """
+        return self.secret_mapping
+
+    def clear_secrets(self):
+        """
+        Clear all secrets from the secret mapping.
+
+        This method removes all stored token-secret mappings, effectively
+        resetting the Vault.
+        """
+        self.secret_mapping.clear()
