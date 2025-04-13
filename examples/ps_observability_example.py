@@ -2,13 +2,14 @@ import re
 from sentinel.prompt_sentinel import sentinel
 from sentinel.session_context import SessionContext
 
-# Initialize the singleton SessionContext
+# Initialize the singleton SessionContext with provided APP_ID and URL.
 session = SessionContext(app_token='42215214', server_url='http://ps.example.com')
 
 
-# A dummy detector for demonstration
+# DummyDetector uses a regex to detect AWS keys.
 class DummyDetector:
     def detect(self, text):
+        # Pattern expects "AKIA" followed by exactly 16 uppercase letters or digits.
         pattern = re.compile(r'AKIA[A-Z0-9]{16}')
         results = []
         for match in pattern.finditer(text):
@@ -19,15 +20,17 @@ class DummyDetector:
 detector = DummyDetector()
 
 
-# Use the sentinel decorator with the default session context
+# The sentinel decorator sanitizes input and reports detected secrets.
 @sentinel(detector, session_context=session)
 def process_message(message):
-    # Process the input message and return it as is
     return message
 
 
 if __name__ == '__main__':
-    sample_message = "This is a sample message with AWS key: AKIAABCDEFGHIJKLMN"
-    output = process_message(sample_message)
-    print("Processed message:")
-    print(output)
+    # Process 50 messages, each with a different AWS secret key.
+    for i in range(50):
+        # Generate a unique AWS key for each iteration.
+        secret = f"AKIA{'A' * 15}{chr(65 + (i % 26))}"
+        message = f"This is message {i + 1} with secret: {secret}"
+        output = process_message(message)
+        print(f"Processed message {i + 1}: {output}")
