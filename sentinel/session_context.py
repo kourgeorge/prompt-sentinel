@@ -1,12 +1,6 @@
-from copy import deepcopy
-from typing import Any, Callable, Dict, Union, Tuple
-from functools import wraps
-from sentinel.sentinel_detectors import SecretDetector
-from sentinel.vault import Vault  # Import the new Vault class
-import inspect
-import asyncio
+from typing import Dict
+from sentinel.vault import Vault
 import requests
-from datetime import datetime
 import uuid
 
 
@@ -44,25 +38,25 @@ class SessionContext:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, project_token: str, server_url: str, session_id: str = None):
+    def __init__(self, app_token: str, server_url: str = None, session_id: str = None):
         """
         Initialize the SessionContext instance.
 
         Parameters:
         ----------
-        project_token : str
-            A unique token identifying the project.
+        app_token : str
+            A unique token identifying the application.
 
-        server_url : str
-            The URL of the server to which reports are sent.
+        server_url : str, optional
+            The URL of the server to which reports are sent. If not provided, reporting is disabled.
 
         session_id : str, optional
             A unique identifier for the session. If not provided, a UUID is generated.
         """
         if self._initialized:
             return  # Avoid reinitializing the singleton instance
-        self.project_token = project_token
-        self.server_url = server_url
+        self.project_token = app_token
+        self.server_url = server_url  # Allow server_url to be None
         self.vault = Vault()  # Use Vault for secret management
         self.session_id = session_id or str(uuid.uuid4())
         self._initialized = True
@@ -119,6 +113,10 @@ class SessionContext:
         timestamp : str
             The timestamp of when the secrets were detected.
         """
+        if not self.server_url:
+            print("Server URL is not defined. Reporting functionality is disabled.")
+            return
+
         url = f"{self.server_url}/api/report"
         payload = {
             "project_token": self.project_token,
@@ -132,4 +130,5 @@ class SessionContext:
             requests.post(url, json=payload)
         except Exception:
             print("Could not send data to the server")
+
 
