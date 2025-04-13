@@ -3,7 +3,7 @@ from sentinel.prompt_sentinel import sentinel
 from sentinel.session_context import SessionContext
 
 # Initialize the singleton SessionContext with provided APP_ID and URL.
-session = SessionContext(app_token='42215214', server_url='http://0.0.0.0:8000')
+session = SessionContext(app_id='42215214', server_url='http://0.0.0.0:8000')
 
 
 # DummyDetector uses a regex to detect AWS keys.
