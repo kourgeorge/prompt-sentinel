@@ -102,15 +102,17 @@ def verify_credentials(username: str, password: str) -> bool:
     return False
 
 def create_access_token(username: str) -> str:
-    # Simple token creation - in production use proper JWT
-    data = f"{username}:{datetime.utcnow().isoformat()}"
+    # Simple token creation for demo - just hash the username with a secret
+    secret = "demo_secret_key_2024"
+    data = f"{username}:{secret}"
     return hashlib.sha256(data.encode()).hexdigest()
 
 def verify_token(token: str) -> Optional[str]:
-    # Simple token verification - in production use proper JWT
+    # Simple token verification for demo
+    secret = "demo_secret_key_2024"
     for username in FAKE_SECURITY_OFFICERS:
-        test_data = f"{username}:{datetime.utcnow().isoformat()}"
-        if hashlib.sha256(test_data.encode()).hexdigest() == token:
+        expected_token = hashlib.sha256(f"{username}:{secret}".encode()).hexdigest()
+        if token == expected_token:
             return username
     return None
 
@@ -132,15 +134,20 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    print(f"🔐 Login attempt: username='{username}', password='{password}'")
+    
     if verify_credentials(username, password):
+        print(f"✅ Login successful for user: {username}")
         token = create_access_token(username)
         response = RedirectResponse(url="/dashboard", status_code=302)
         response.set_cookie(key="access_token", value=token, httponly=True)
         return response
     else:
+        print(f"❌ Login failed for user: {username}")
+        print(f"Available users: {list(FAKE_SECURITY_OFFICERS.keys())}")
         return templates.TemplateResponse("login.html", {
             "request": request, 
-            "error": "Invalid credentials"
+            "error": "Invalid credentials. Try: admin/admin123 or officer1/secure123"
         })
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -353,7 +360,9 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8001))  # Default to 8001 instead of 8000
     print(f"� Using port: {port} (default changed from 8000 to 8001)")
     print(f"📊 Dashboard: http://localhost:{port}")
-    print(f"🔐 Login: admin/admin123 or officer1/secure123")
+    print("LOGIN CREDENTIALS:")
+    print("  admin / admin123")
+    print("  officer1 / secure123")
     print("💡 If you see port 8000, you might have an old process running!")
     print("=" * 60)
     
