@@ -132,7 +132,14 @@
                                             <small class="text-muted d-block">{{ event.timestamp.strftime('%H:%M:%S') }}</small>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-info" onclick="showEventDetails({{ event.id }})">
+                                            <button class="btn btn-sm btn-outline-info view-event-btn" 
+                                                    data-event-id="{{ event.id }}"
+                                                    data-app-id="{{ event.app_id }}"
+                                                    data-session-id="{{ event.session_id }}"
+                                                    data-prompt="{{ event.prompt }}"
+                                                    data-sanitized="{{ event.sanitized_output }}"
+                                                    data-secrets="{{ event.secrets }}"
+                                                    data-timestamp="{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
                                                 <i class="fas fa-eye"></i>
                                                 View
                                             </button>
@@ -235,35 +242,58 @@
         document.getElementById('filterForm').reset();
     }
 
-    function showEventDetails(id) {
-        // In a real application, this would fetch event details via AJAX
-        // For now, we'll extract the data from the table row
-        const row = document.querySelector(`tr:has(button[onclick*="${id}"])`);
+    function showEventDetails(button) {
+        // Extract data from button attributes
+        const eventId = button.getAttribute('data-event-id');
+        const appId = button.getAttribute('data-app-id');
+        const sessionId = button.getAttribute('data-session-id');
+        const prompt = button.getAttribute('data-prompt');
+        const sanitized = button.getAttribute('data-sanitized');
+        const secretsJson = button.getAttribute('data-secrets');
+        const timestamp = button.getAttribute('data-timestamp');
         
-        document.getElementById('modalEventId').textContent = '#' + id;
-        document.getElementById('modalAppId').textContent = 'Event ID: ' + id;
-        document.getElementById('modalSessionId').textContent = 'Session data...';
-        document.getElementById('modalTimestamp').textContent = new Date().toLocaleString();
-        document.getElementById('modalPrompt').textContent = 'Original prompt would be shown here...';
-        document.getElementById('modalSanitizedOutput').textContent = 'Sanitized output would be shown here...';
+        // Populate modal with real data
+        document.getElementById('modalEventId').textContent = '#' + eventId;
+        document.getElementById('modalAppId').textContent = appId;
+        document.getElementById('modalSessionId').textContent = sessionId;
+        document.getElementById('modalTimestamp').textContent = timestamp;
+        document.getElementById('modalPrompt').textContent = prompt;
+        document.getElementById('modalSanitizedOutput').textContent = sanitized;
         
-        // Display placeholder secrets
+        // Parse and display secrets
         const secretsContainer = document.getElementById('modalSecrets');
-        secretsContainer.innerHTML = '<span class="badge bg-danger me-1 mb-1">Sample Secret</span>';
+        secretsContainer.innerHTML = '';
+        
+        try {
+            const secrets = JSON.parse(secretsJson);
+            if (Array.isArray(secrets) && secrets.length > 0) {
+                secrets.forEach(secret => {
+                    const secretBadge = document.createElement('span');
+                    secretBadge.className = 'badge bg-danger me-1 mb-1';
+                    secretBadge.textContent = secret;
+                    secretsContainer.appendChild(secretBadge);
+                });
+            } else {
+                secretsContainer.innerHTML = '<span class="text-muted">No secrets detected</span>';
+            }
+        } catch (e) {
+            secretsContainer.innerHTML = '<span class="text-muted">Error parsing secrets</span>';
+        }
         
         // Show the modal
         const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
         modal.show();
     }
+    
+    // Add event listeners to all view buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.view-event-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                showEventDetails(this);
+            });
+        });
+    });
 
-    // Add JSON parsing filter for Jinja2
-    // This would be handled server-side in a real application
-    function parseJsonSecrets(jsonString) {
-        try {
-            return JSON.parse(jsonString);
-        } catch (e) {
-            return [];
-        }
-    }
+    
 </script>
 {% endblock %}
