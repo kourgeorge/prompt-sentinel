@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Events - Sentinel Telemetry{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Events Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Privacy Events
+                </h1>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-outline-primary btn-sm me-2" onclick="refreshEvents()">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Refresh
+                    </button>
+                    <a href="/dashboard" class="btn btn-primary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-filter me-2"></i>
+                    Filters
+                </div>
+                <div class="card-body">
+                    <form id="filterForm">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="riskLevel" class="form-label">Risk Level</label>
+                                <select class="form-select" id="riskLevel" name="risk_level">
+                                    <option value="">All Levels</option>
+                                    <option value="HIGH">High Risk</option>
+                                    <option value="MEDIUM">Medium Risk</option>
+                                    <option value="LOW">Low Risk</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="appId" class="form-label">User ID</label>
+                                <input type="text" class="form-control" id="appId" name="app_id" placeholder="Enter User ID">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="dateFrom" class="form-label">From Date</label>
+                                <input type="date" class="form-control" id="dateFrom" name="date_from">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="dateTo" class="form-label">To Date</label>
+                                <input type="date" class="form-control" id="dateTo" name="date_to">
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" onclick="applyFilters()">
+                                    <i class="fas fa-search me-1"></i>
+                                    Apply Filters
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary ms-2" onclick="clearFilters()">
+                                    <i class="fas fa-times me-1"></i>
+                                    Clear Filters
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Events Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-table me-2"></i>
+                        Detailed Events (Latest 50)
+                    </span>
+                    <span class="badge bg-info">{{ events|length }} events</span>
+                </div>
+                <div class="card-body">
+                    {% if events %}
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="eventsTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User ID</th>
+                                        <th>Session ID</th>
+                                        <th>Secrets</th>
+                                        <th>Risk Level</th>
+                                        <th>Timestamp</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in events %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-light text-dark">#{{ event.id }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ event.app_id }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted font-monospace">{{ event.session_id[:12] }}...</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-danger">{{ event.secrets_count }}</span>
+                                            <small class="text-muted d-block">
+                                                {% set secrets = event.secrets | from_json %}
+                                                {% for secret in secrets[:2] %}
+                                                    <span class="badge bg-warning text-dark me-1">{{ secret[:15] }}...</span>
+                                                {% endfor %}
+                                                {% if secrets|length > 2 %}
+                                                    <span class="badge bg-info">+{{ secrets|length - 2 }} more</span>
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="risk-badge risk-{{ event.risk_level.lower() }}">
+                                                {{ event.risk_level }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="timestamp">{{ event.timestamp.strftime('%Y-%m-%d') }}</span>
+                                            <small class="text-muted d-block">{{ event.timestamp.strftime('%H:%M:%S') }}</small>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-info" onclick="showEventDetails({{ event.id }})">
+                                                <i class="fas fa-eye"></i>
+                                                View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <h5>No Events Found</h5>
+                            <p>No privacy events match your current filters.</p>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Privacy events will appear here as they are detected by Sentinel.
+                                </small>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Event Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Event ID:</strong>
+                        <span id="modalEventId" class="text-muted"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>User ID:</strong>
+                        <span id="modalAppId" class="badge bg-secondary"></span>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>Session ID:</strong>
+                        <span id="modalSessionId" class="text-muted font-monospace"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Timestamp:</strong>
+                        <span id="modalTimestamp" class="text-muted"></span>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <strong>Original Prompt:</strong>
+                    <div id="modalPrompt" class="secret-preview mt-2"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Sanitized Output:</strong>
+                    <div id="modalSanitizedOutput" class="bg-light p-3 rounded font-monospace"></div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Detected Secrets:</strong>
+                    <div id="modalSecrets" class="mt-2"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function refreshEvents() {
+        window.location.reload();
+    }
+
+    function applyFilters() {
+        // In a real application, this would make an AJAX request to filter events
+        // For now, we'll just show an alert
+        alert('Filtering functionality would be implemented here');
+    }
+
+    function clearFilters() {
+        document.getElementById('filterForm').reset();
+    }
+
+    function showEventDetails(id) {
+        // In a real application, this would fetch event details via AJAX
+        // For now, we'll extract the data from the table row
+        const row = document.querySelector(`tr:has(button[onclick*="${id}"])`);
+        
+        document.getElementById('modalEventId').textContent = '#' + id;
+        document.getElementById('modalAppId').textContent = 'Event ID: ' + id;
+        document.getElementById('modalSessionId').textContent = 'Session data...';
+        document.getElementById('modalTimestamp').textContent = new Date().toLocaleString();
+        document.getElementById('modalPrompt').textContent = 'Original prompt would be shown here...';
+        document.getElementById('modalSanitizedOutput').textContent = 'Sanitized output would be shown here...';
+        
+        // Display placeholder secrets
+        const secretsContainer = document.getElementById('modalSecrets');
+        secretsContainer.innerHTML = '<span class="badge bg-danger me-1 mb-1">Sample Secret</span>';
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+        modal.show();
+    }
+
+    // Add JSON parsing filter for Jinja2
+    // This would be handled server-side in a real application
+    function parseJsonSecrets(jsonString) {
+        try {
+            return JSON.parse(jsonString);
+        } catch (e) {
+            return [];
+        }
+    }
+</script>
+{% endblock %}

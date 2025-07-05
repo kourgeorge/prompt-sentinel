@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Security Dashboard - Sentinel Telemetry{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Dashboard Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    Security Dashboard
+                </h1>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success me-2">
+                        <i class="fas fa-circle me-1"></i>
+                        Live Monitoring
+                    </span>
+                    <small class="text-muted">
+                        Last updated: {{ moment().format('YYYY-MM-DD HH:mm:ss') }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ total_events }}</h3>
+                <p><i class="fas fa-exclamation-triangle me-2"></i>Total Privacy Events</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card danger">
+                <h3>{{ total_secrets }}</h3>
+                <p><i class="fas fa-eye-slash me-2"></i>Secrets Detected</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card warning">
+                <h3>{{ unique_apps }}</h3>
+                <p><i class="fas fa-users me-2"></i>Unique Users</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card success">
+                <h3>{{ unique_sessions }}</h3>
+                <p><i class="fas fa-desktop me-2"></i>Active Sessions</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Privacy Events Timeline
+                </div>
+                <div class="card-body">
+                    {% if charts.timeline %}
+                        {{ charts.timeline | safe }}
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <p>No data available yet. Events will appear here as they are collected.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Risk Distribution
+                </div>
+                <div class="card-body">
+                    {% if charts.risk_distribution %}
+                        {{ charts.risk_distribution | safe }}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-chart-pie fa-2x mb-2"></i>
+                            <p>No risk data available</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Risky Applications -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Top Applications by Privacy Risk
+                </div>
+                <div class="card-body">
+                    {% if charts.top_apps %}
+                        {{ charts.top_apps | safe }}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <p>No application data available</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Events -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-clock me-2"></i>
+                        Recent Privacy Events
+                    </span>
+                    <a href="/events" class="btn btn-sm btn-outline-primary">
+                        View All Events
+                        <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_events %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>User ID</th>
+                                        <th>Session</th>
+                                        <th>Secrets Count</th>
+                                        <th>Risk Level</th>
+                                        <th>Timestamp</th>
+                                        <th>Preview</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in recent_events %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ event.app_id }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ event.session_id[:8] }}...</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-danger">{{ event.secrets_count }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="risk-badge risk-{{ event.risk_level.lower() }}">
+                                                {{ event.risk_level }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="timestamp">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                                        </td>
+                                        <td>
+                                            <div class="secret-preview">
+                                                {{ event.prompt[:80] }}{% if event.prompt|length > 80 %}...{% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <h5>No Events Yet</h5>
+                            <p>Privacy events will appear here as they are detected by Sentinel.</p>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Make sure your Sentinel instances are configured to report to this server.
+                                </small>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/events" class="btn btn-primary">
+                            <i class="fas fa-list me-2"></i>
+                            View All Events
+                        </a>
+                        <button class="btn btn-outline-success" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Refresh Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-2"></i>
+                    System Status
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="text-success mb-2">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                                <small class="text-muted">Database</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="text-success mb-2">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                                <small class="text-muted">API Server</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Summary -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Risk Summary
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for risk_level, count in risk_distribution %}
+                        <div class="col-md-4 text-center">
+                            <div class="risk-badge risk-{{ risk_level.lower() }} mb-2 d-inline-block">
+                                {{ risk_level }}
+                            </div>
+                            <h4>{{ count }}</h4>
+                            <p class="text-muted">Events</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function refreshDashboard() {
+        window.location.reload();
+    }
+
+    // Auto-refresh every 30 seconds
+    setInterval(refreshDashboard, 30000);
+</script>
+{% endblock %}
