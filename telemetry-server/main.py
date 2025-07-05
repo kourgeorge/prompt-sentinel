@@ -1,3 +1,8 @@
+import warnings
+# Suppress SQLAlchemy 2.0 deprecation warnings (we're already using the correct import)
+warnings.filterwarnings("ignore", message=".*declarative_base.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="sqlalchemy.*")
+
 from fastapi import FastAPI, Request, HTTPException, Depends, Form, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -341,8 +346,15 @@ async def logout():
 if __name__ == "__main__":
     import uvicorn
     import os
+    
+    print("🛡️  Sentinel Telemetry Server - UPDATED VERSION")
+    print("=" * 60)
+    
     port = int(os.getenv("PORT", 8001))  # Default to 8001 instead of 8000
-    print(f"🛡️  Starting Sentinel Telemetry Server on port {port}")
+    print(f"� Using port: {port} (default changed from 8000 to 8001)")
     print(f"📊 Dashboard: http://localhost:{port}")
     print(f"🔐 Login: admin/admin123 or officer1/secure123")
+    print("💡 If you see port 8000, you might have an old process running!")
+    print("=" * 60)
+    
     uvicorn.run(app, host="0.0.0.0", port=port)
