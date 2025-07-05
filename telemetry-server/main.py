@@ -157,31 +157,51 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     if not token or not verify_token(token):
         return RedirectResponse(url="/", status_code=302)
     
-    # Get telemetry statistics
-    total_events = db.query(TelemetryEvent).count()
-    total_secrets = db.query(func.sum(TelemetryEvent.secrets_count)).scalar() or 0
-    unique_apps = db.query(TelemetryEvent.app_id).distinct().count()
-    unique_sessions = db.query(TelemetryEvent.session_id).distinct().count()
-    
-    # Get recent events
-    recent_events = db.query(TelemetryEvent).order_by(TelemetryEvent.timestamp.desc()).limit(10).all()
-    
-    # Get risk distribution
-    risk_distribution = db.query(TelemetryEvent.risk_level, func.count(TelemetryEvent.id)).group_by(TelemetryEvent.risk_level).all()
-    
-    # Create charts
-    charts = create_dashboard_charts(db)
-    
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "total_events": total_events,
-        "total_secrets": total_secrets,
-        "unique_apps": unique_apps,
-        "unique_sessions": unique_sessions,
-        "recent_events": recent_events,
-        "risk_distribution": risk_distribution,
-        "charts": charts
-    })
+    try:
+        # Get telemetry statistics
+        total_events = db.query(TelemetryEvent).count()
+        total_secrets = db.query(func.sum(TelemetryEvent.secrets_count)).scalar() or 0
+        unique_apps = db.query(TelemetryEvent.app_id).distinct().count()
+        unique_sessions = db.query(TelemetryEvent.session_id).distinct().count()
+        
+        # Get recent events
+        recent_events = db.query(TelemetryEvent).order_by(TelemetryEvent.timestamp.desc()).limit(10).all()
+        
+        # Get risk distribution
+        risk_distribution = db.query(TelemetryEvent.risk_level, func.count(TelemetryEvent.id)).group_by(TelemetryEvent.risk_level).all()
+        
+        # Create charts with error handling
+        try:
+            charts = create_dashboard_charts(db)
+        except Exception as e:
+            print(f"Chart creation error: {e}")
+            charts = {}
+        
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "total_events": total_events,
+            "total_secrets": total_secrets,
+            "unique_apps": unique_apps,
+            "unique_sessions": unique_sessions,
+            "recent_events": recent_events,
+            "risk_distribution": risk_distribution,
+            "charts": charts,
+            "current_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        })
+    except Exception as e:
+        print(f"Dashboard error: {e}")
+        # Return a basic dashboard if there are errors
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "total_events": 0,
+            "total_secrets": 0,
+            "unique_apps": 0,
+            "unique_sessions": 0,
+            "recent_events": [],
+            "risk_distribution": [],
+            "charts": {},
+            "current_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        })
 
 def create_dashboard_charts(db: Session) -> Dict[str, str]:
     """Create Plotly charts for the dashboard"""

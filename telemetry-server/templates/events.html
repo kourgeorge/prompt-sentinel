@@ -118,13 +118,8 @@
                                         <td>
                                             <span class="badge bg-danger">{{ event.secrets_count }}</span>
                                             <small class="text-muted d-block">
-                                                {% set secrets = event.secrets | from_json %}
-                                                {% for secret in secrets[:2] %}
-                                                    <span class="badge bg-warning text-dark me-1">{{ secret[:15] }}...</span>
-                                                {% endfor %}
-                                                {% if secrets|length > 2 %}
-                                                    <span class="badge bg-info">+{{ secrets|length - 2 }} more</span>
-                                                {% endif %}
+                                                {% set secrets = event.secrets | tojson | string %}
+                                                <span class="badge bg-warning text-dark me-1">{{ secrets[:20] }}...</span>
                                             </small>
                                         </td>
                                         <td>

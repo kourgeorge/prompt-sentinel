@@ -18,7 +18,7 @@
                         Live Monitoring
                     </span>
                     <small class="text-muted">
-                        Last updated: {{ moment().format('YYYY-MM-DD HH:mm:ss') }}
+                        Last updated: <span id="current-time"></span>
                     </small>
                 </div>
             </div>
@@ -275,6 +275,24 @@
     function refreshDashboard() {
         window.location.reload();
     }
+
+    function updateCurrentTime() {
+        const now = new Date();
+        const formatted = now.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+        document.getElementById('current-time').textContent = formatted;
+    }
+
+    // Update time immediately and then every second
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
 
     // Auto-refresh every 30 seconds
     setInterval(refreshDashboard, 30000);
