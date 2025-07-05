@@ -14,7 +14,7 @@ def main():
     
     # Configuration
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8001))  # Updated to match new default port
     
     print(f"Starting server on {host}:{port}")
     print(f"Dashboard URL: http://localhost:{port}")

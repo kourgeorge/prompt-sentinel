@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 
 # Server configuration
-SERVER_URL = "http://localhost:8000"
+SERVER_URL = "http://localhost:8001"  # Updated to match new default port
 API_ENDPOINT = f"{SERVER_URL}/api/report"
 
 # Sample data for generating realistic telemetry

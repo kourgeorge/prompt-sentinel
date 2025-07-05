@@ -11,7 +11,7 @@ from sentinel.sentinel_detectors import RegexSecretDetector, LLMSecretDetector
 from sentinel.session_context import SessionContext
 
 # Configure telemetry server
-os.environ["PS_SERVER_URL"] = "http://localhost:8000"
+os.environ["PS_SERVER_URL"] = "http://localhost:8001"  # Updated to match new default port
 os.environ["PS_APP_ID"] = "example_app"
 
 # Create a simple LLM mock for demonstration
@@ -99,7 +99,7 @@ def demonstrate_session_context():
     # Create custom session context
     session_context = SessionContext(
         app_id="custom_app_demo",
-        server_url="http://localhost:8000"
+        server_url="http://localhost:8001"  # Updated to match new default port
     )
     
     detector = RegexSecretDetector()
@@ -147,7 +147,7 @@ def main():
         demonstrate_session_context()
         
         print("\n✅ All examples completed successfully!")
-        print("\n📊 Check the telemetry dashboard at: http://localhost:8000")
+        print("\n📊 Check the telemetry dashboard at: http://localhost:8001")
         print("Login with: admin / admin123")
         
     except Exception as e:

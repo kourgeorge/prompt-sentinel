@@ -4,8 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, Text, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import json
@@ -341,4 +340,9 @@ async def logout():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    port = int(os.getenv("PORT", 8001))  # Default to 8001 instead of 8000
+    print(f"🛡️  Starting Sentinel Telemetry Server on port {port}")
+    print(f"📊 Dashboard: http://localhost:{port}")
+    print(f"🔐 Login: admin/admin123 or officer1/secure123")
+    uvicorn.run(app, host="0.0.0.0", port=port)
