@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-multipart
+jinja2
+python-jose[cryptography]
+passlib[bcrypt]
+pandas
+plotly
+python-dotenv
+httpx

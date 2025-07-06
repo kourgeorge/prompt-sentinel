@@ -231,11 +231,15 @@ def detect_and_encode_text(
     secrets = [secret["secret"] for secret in secrets_info]
     session_context.report_to_server(text, secrets, sanitized_text, timestamp)
 
-
+    # Enhanced logging for better visibility
     print(f"============================================"
           f"\n{len(secrets_info)} Secrets were detected in the LLM prompt."
-          f"\nSanitized Input: {secret['secret']}\n"
-          f"============================================")
+          f"\nUser ID: {session_context.app_id}"
+          f"\nSession ID: {session_context.session_id}"
+          f"\nSecrets found: {secrets}"
+          f"\nOriginal text length: {len(text)} characters"
+          f"\nSanitized text length: {len(sanitized_text)} characters"
+          f"\n============================================")
     return sanitized_text
 
 
